@@ -127,6 +127,16 @@
 
   .add-btn{width:100%; border:1.5px dashed var(--maroon); background:var(--pink-soft); color:var(--maroon); font-family:'Baloo 2'; font-weight:700; font-size:14.5px; padding:13px 0; border-radius:16px; cursor:pointer; margin-top:16px;}
 
+  /* ===== Modal ===== */
+  .modal-overlay{display:none; position:absolute; inset:0; background:rgba(58,35,35,.5); z-index:50; align-items:center; justify-content:center; padding:24px; border-radius:34px;}
+  .modal-overlay.show{display:flex;}
+  .modal-box{background:#fff; border-radius:24px; padding:24px 20px 20px; width:100%; max-width:320px; box-shadow:0 20px 40px -10px rgba(0,0,0,.35);}
+  .modal-box h3{margin:0 0 16px; font-size:17px; color:var(--maroon); text-align:center; font-family:'Baloo 2';}
+  .modal-label{font-size:12.5px; font-weight:700; color:var(--muted); margin:2px 2px 8px;}
+  .modal-cancel{text-align:center; margin-top:12px; color:var(--muted); font-size:13px; font-weight:700; cursor:pointer;}
+  .cat-pick{border-color:var(--line);}
+  .cat-pick.active{color:#fff; border-color:transparent;}
+
   /* ===== Calendar ===== */
   .toggle-pair{display:flex; gap:8px; margin-bottom:16px;}
   .pill{flex:1; text-align:center; border-radius:999px; padding:9px 0; font-size:12.5px; font-weight:800; border:1.5px solid var(--line); cursor:pointer; color:var(--muted);}
@@ -294,8 +304,20 @@
       <div class="topbar"><h1>🛍️ Shopping List</h1><button class="icon-btn" onclick="goScreen('home')">🏠</button></div>
       <div class="chip-row" id="shopFilters"></div>
       <div class="list-box" id="shopList"></div>
-      <button class="add-btn" onclick="addShoppingItem()">+ Add item</button>
+      <button class="add-btn" onclick="openAddItemModal()">+ Add item</button>
     </section>
+
+    <!-- ADD SHOPPING ITEM MODAL -->
+    <div class="modal-overlay" id="addItemModal">
+      <div class="modal-box">
+        <h3>เพิ่มของที่ต้องซื้อ</h3>
+        <div class="field"><input type="text" id="newItemName" placeholder="ชื่อของที่ต้องซื้อ..." onkeydown="if(event.key==='Enter')submitNewItem();"></div>
+        <div class="modal-label">หมวดหมู่</div>
+        <div class="chip-row" id="newItemCatRow"></div>
+        <button class="btn-primary" onclick="submitNewItem()">+ เพิ่มรายการ</button>
+        <div class="modal-cancel" onclick="closeAddItemModal()">ยกเลิก</div>
+      </div>
+    </div>
 
     <!-- CALENDAR -->
     <section class="screen" id="screen-calendar">
@@ -629,13 +651,36 @@ function renderShopping(){
 }
 function setShopFilter(c){ shopFilter=c; renderShopping(); }
 async function toggleShop(id, done){
-  await sb.from('shopping_items').update({done: !done}).eq('id', id);
+  if(done) return; // กันกดซ้ำระหว่างรอลบ
+  // เอาออกจากหน้าจอทันทีให้รู้สึกลื่นไหล ก่อนลบจริงใน Supabase
+  shoppingData = shoppingData.filter(i => i.id !== id);
+  renderShopping();
+  renderHomeStats();
+  await sb.from('shopping_items').delete().eq('id', id);
 }
-async function addShoppingItem(){
-  const name = prompt('เพิ่มของที่ต้องซื้อ:');
+let newItemCategory = 'Home';
+function openAddItemModal(){
+  newItemCategory = 'Home';
+  document.getElementById('newItemName').value = '';
+  renderNewItemCats();
+  document.getElementById('addItemModal').classList.add('show');
+  setTimeout(()=>document.getElementById('newItemName').focus(), 50);
+}
+function closeAddItemModal(){
+  document.getElementById('addItemModal').classList.remove('show');
+}
+function renderNewItemCats(){
+  document.getElementById('newItemCatRow').innerHTML = Object.keys(catColors).map(c=>{
+    const active = newItemCategory===c;
+    return `<div class="chip cat-pick ${active?'active':''}" style="${active?`background:${catColors[c]};`:''}" onclick="pickNewItemCat('${c}')">${c}</div>`;
+  }).join('');
+}
+function pickNewItemCat(c){ newItemCategory = c; renderNewItemCats(); }
+async function submitNewItem(){
+  const name = document.getElementById('newItemName').value.trim();
   if(!name) return;
-  const category = prompt('หมวดหมู่ (Food / Home / Health / Child):', 'Home') || 'Home';
-  await sb.from('shopping_items').insert({ household_id: currentHouseholdId, name, category, created_by: currentUser.id });
+  await sb.from('shopping_items').insert({ household_id: currentHouseholdId, name, category: newItemCategory, created_by: currentUser.id });
+  closeAddItemModal();
 }
 
 /* ---------- CALENDAR ---------- */
