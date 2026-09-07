@@ -481,9 +481,10 @@ async function setupHouseholdAndProfile(user, name, nickname, partnerEmail){
     householdId = invites[0].household_id;
     await sb.from('household_invites').update({status:'accepted'}).eq('id', invites[0].id);
   } else {
-    const { data: h, error: herr } = await sb.from('households').insert({}).select().single();
+    const newHouseholdId = crypto.randomUUID();
+    const { error: herr } = await sb.from('households').insert({ id: newHouseholdId });
     if(herr) throw herr;
-    householdId = h.id;
+    householdId = newHouseholdId;
     if(partnerEmail){
       await sb.from('household_invites').insert({ household_id: householdId, invited_email: partnerEmail, invited_by: user.id });
     }
