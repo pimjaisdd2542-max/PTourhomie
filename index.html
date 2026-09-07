@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Our Homie — จัดการบ้านของเราด้วยกัน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --maroon:#7A1B2B;
+    --maroon-dark:#5B1220;
+    --cream:#FFF8F5;
+    --pink-soft:#FDEAEA;
+    --pink:#F5A6B6;
+    --purple:#B79CE0;
+    --blue:#8FD1EC;
+    --orange:#F4A25E;
+    --yellow:#F5C63D;
+    --teal:#6FC7B8;
+    --text:#3A2323;
+    --muted:#93777A;
+    --line:#F0DCDD;
+    --white:#ffffff;
+    --shadow: 0 10px 28px -14px rgba(122,27,43,.35);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Nunito',sans-serif;
+    background:linear-gradient(180deg,#FBE6E4 0%, #F3EEED 260px, #F3EEED 100%);
+    color:var(--text);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    padding:28px 12px;
+  }
+  h1,h2,h3,.brand,.nav-label,.stat-num{font-family:'Baloo 2',sans-serif;}
+
+  .shell{
+    width:100%;
+    max-width:420px;
+    background:var(--white);
+    border-radius:34px;
+    box-shadow:0 30px 60px -20px rgba(90,20,30,.35), 0 0 0 10px #2b1418;
+    overflow:hidden;
+    position:relative;
+    min-height:840px;
+  }
+  .screen{display:none; padding:26px 22px 100px; animation:fadein .35s ease;}
+  .screen.active{display:block;}
+  @keyframes fadein{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  /* ===== Auth screen ===== */
+  #auth{padding:32px 26px 24px; display:flex; flex-direction:column; min-height:840px;}
+  .blobs{display:flex; align-items:flex-end; justify-content:center; gap:6px; margin:2px 0 14px; position:relative; height:120px;}
+  .blob-row{display:flex; align-items:flex-end; gap:10px;}
+  .blob-flower{width:64px; height:64px; background:var(--orange); border-radius:38% 62% 60% 40% / 55% 45% 55% 45%; display:flex; align-items:center; justify-content:center;}
+  .blob-flower .face{width:36px;height:36px;background:#F58A3B;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;}
+  .blob-circle{width:96px; height:96px; background:var(--pink); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:26px; box-shadow:var(--shadow);}
+  .blob-square{width:64px; height:64px; background:#F4A25E; border-radius:22px; display:flex; align-items:center; justify-content:center; font-size:19px;}
+  .star{position:absolute; right:30px; bottom:2px; font-size:19px; color:var(--yellow);}
+  .dot{position:absolute; width:8px; height:8px; border-radius:50%; background:var(--maroon); opacity:.25;}
+  .dot.d1{top:2px; left:60px;} .dot.d2{bottom:20px; left:30px;} .dot.d3{top:10px; right:16px;}
+
+  .brand{text-align:center; font-size:27px; font-weight:800; color:var(--maroon); margin:2px 0 6px;}
+  .tagline{text-align:center; color:var(--muted); font-size:13.5px; line-height:1.5; max-width:290px; margin:0 auto 16px;}
+
+  .segment{display:flex; background:var(--pink-soft); border-radius:999px; padding:5px; margin-bottom:16px;}
+  .segment button{flex:1; border:none; background:transparent; padding:10px 0; font-family:'Baloo 2',sans-serif; font-weight:700; font-size:14.5px; color:var(--muted); border-radius:999px; cursor:pointer; transition:.2s;}
+  .segment button.active{background:var(--white); color:var(--maroon); box-shadow:0 6px 14px -6px rgba(122,27,43,.25);}
+
+  .field{display:flex; align-items:center; gap:10px; border:1.5px solid var(--line); border-radius:999px; padding:12px 17px; margin-bottom:11px; background:#fff;}
+  .field input{border:none; outline:none; flex:1; font-family:'Nunito'; font-size:14.5px; background:transparent; color:var(--text);}
+  .field .ic{font-size:15px; opacity:.7;}
+
+  .btn-primary{width:100%; border:none; background:var(--maroon); color:#fff; font-family:'Baloo 2'; font-weight:700; font-size:15.5px; padding:14px 0; border-radius:999px; cursor:pointer; box-shadow:var(--shadow); transition:.15s;}
+  .btn-primary:hover{background:var(--maroon-dark);}
+  .btn-primary:disabled{opacity:.6; cursor:default;}
+  .forgot{text-align:center; margin-top:14px; color:var(--maroon); font-size:13px; font-weight:700; text-decoration:underline; cursor:pointer;}
+  .auth-note{margin-top:auto; padding-top:14px; text-align:center; font-size:11px; color:var(--muted); line-height:1.6;}
+  .auth-msg{text-align:center; font-size:12.5px; font-weight:700; border-radius:12px; padding:9px 10px; margin-bottom:12px; display:none;}
+  .auth-msg.show{display:block;}
+  .auth-msg.err{background:#FBE2E2; color:#B23A3A;}
+  .auth-msg.ok{background:#E4F6EE; color:#2E8F63;}
+  #signupFields{display:none;}
+
+  /* ===== Top bar ===== */
+  .topbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;}
+  .topbar h1{font-size:22px; color:var(--maroon); margin:0; display:flex; align-items:center; gap:8px;}
+  .icon-btn{width:40px; height:40px; border-radius:14px; background:var(--pink-soft); display:flex; align-items:center; justify-content:center; font-size:17px; cursor:pointer; border:none;}
+  .view-all{font-size:12.5px; font-weight:700; color:var(--maroon); text-decoration:none; cursor:pointer;}
+  .section-title{display:flex; align-items:center; justify-content:space-between; margin:22px 0 10px;}
+  .section-title h2{font-size:15.5px; margin:0; color:var(--text);}
+
+  /* ===== Home ===== */
+  .stat-row{display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; margin-bottom:4px;}
+  .stat-card{min-width:70px; background:var(--pink-soft); border-radius:18px; padding:12px 6px; text-align:center; flex-shrink:0;}
+  .stat-card .em{font-size:20px;}
+  .stat-num{font-size:16px; font-weight:800; color:var(--maroon); margin:2px 0;}
+  .stat-label{font-size:10.5px; color:var(--muted); font-weight:700;}
+
+  .card-row{border:1.5px solid var(--line); border-radius:18px; padding:14px 16px; display:flex; align-items:center; gap:12px; margin-bottom:10px; background:#fff;}
+  .card-row .dot-ic{width:38px; height:38px; border-radius:50%; background:var(--pink-soft); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:16px;}
+  .card-row .lines{flex:1;}
+  .card-row .lines .l1{font-weight:700; font-size:14px;}
+  .card-row .lines .l2{font-size:12px; color:var(--muted); margin-top:2px;}
+  .arrow{color:var(--maroon); font-weight:800;}
+
+  .list-box{border:1.5px solid var(--line); border-radius:18px; padding:6px 16px; background:#fff;}
+  .list-item{display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--line);}
+  .list-item:last-child{border-bottom:none;}
+  .chk{width:20px; height:20px; border-radius:7px; border:2px solid var(--maroon); flex-shrink:0; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:12px; color:#fff;}
+  .chk.done{background:var(--maroon);}
+  .item-name{flex:1; font-size:14.5px; font-weight:600;}
+  .item-name.done{text-decoration:line-through; color:var(--muted);}
+  .tag{font-size:10.5px; font-weight:800; padding:4px 10px; border-radius:999px; white-space:nowrap;}
+  .date-chip{width:40px; height:40px; border-radius:12px; background:var(--pink-soft); color:var(--maroon); font-weight:800; font-family:'Baloo 2'; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:11.5px; text-align:center; line-height:1.1;}
+  .empty-note{padding:16px 0; color:var(--muted); font-size:13px; text-align:center;}
+
+  /* ===== Chips / filters ===== */
+  .chip-row{display:flex; gap:8px; overflow-x:auto; margin-bottom:16px; padding-bottom:2px;}
+  .chip{flex-shrink:0; border:1.5px solid var(--line); background:#fff; padding:9px 15px; border-radius:999px; font-size:13px; font-weight:700; color:var(--muted); cursor:pointer; display:flex; align-items:center; gap:6px; white-space:nowrap;}
+  .chip.active{background:var(--maroon); border-color:var(--maroon); color:#fff;}
+
+  .add-btn{width:100%; border:1.5px dashed var(--maroon); background:var(--pink-soft); color:var(--maroon); font-family:'Baloo 2'; font-weight:700; font-size:14.5px; padding:13px 0; border-radius:16px; cursor:pointer; margin-top:16px;}
+
+  /* ===== Calendar ===== */
+  .toggle-pair{display:flex; gap:8px; margin-bottom:16px;}
+  .pill{flex:1; text-align:center; border-radius:999px; padding:9px 0; font-size:12.5px; font-weight:800; border:1.5px solid var(--line); cursor:pointer; color:var(--muted);}
+  .pill.on-shared{border-color:var(--maroon); color:var(--maroon); background:#fff;}
+  .pill.on-personal{border-color:var(--blue); color:#2A7A93; background:#EAF7FC;}
+  .tab-row{display:flex; background:var(--pink-soft); border-radius:999px; padding:4px; margin-bottom:18px;}
+  .tab-row button{flex:1; border:none; background:transparent; padding:9px 0; font-size:13px; font-weight:700; color:var(--muted); border-radius:999px; cursor:pointer;}
+  .tab-row button.active{background:#fff; color:var(--maroon); box-shadow:0 4px 10px -4px rgba(122,27,43,.3);}
+
+  .mood-q{font-weight:700; font-size:14px; margin-bottom:12px; display:flex; align-items:center; gap:6px;}
+  .mood-row{display:flex; justify-content:space-between; margin-bottom:18px;}
+  .mood-opt{text-align:center; cursor:pointer; flex:1;}
+  .mood-face{width:44px; height:44px; border-radius:14px; margin:0 auto 6px; display:flex; align-items:center; justify-content:center; font-size:19px; border:2px solid transparent;}
+  .mood-opt span{font-size:10.5px; font-weight:700; color:var(--muted);}
+  .mood-opt.sel .mood-face{border-color:var(--maroon); box-shadow:0 0 0 3px var(--pink-soft);}
+  .mood-opt.sel span{color:var(--maroon);}
+
+  .mood-log{display:flex; align-items:center; gap:12px; background:var(--pink-soft); border-radius:16px; padding:12px 14px; margin-bottom:10px;}
+  .mood-log .mf{width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;}
+  .mood-log .mt strong{color:var(--maroon);}
+  .mood-log .mt div:last-child{font-size:11px; color:var(--muted);}
+
+  .cal-head{display:flex; align-items:center; justify-content:space-between; margin:18px 0 10px;}
+  .cal-nav{background:var(--pink-soft); border:none; width:28px; height:28px; border-radius:50%; cursor:pointer; color:var(--maroon); font-weight:800;}
+  .grid7{display:grid; grid-template-columns:repeat(7,1fr); gap:6px; text-align:center;}
+  .grid7 .dow{font-size:11px; color:var(--muted); font-weight:700; padding-bottom:4px;}
+  .day{aspect-ratio:1; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:12.5px; font-weight:700; background:#F6F1F0; color:var(--muted);}
+  .day.empty{background:transparent;}
+  .day.today{outline:2px solid var(--maroon); outline-offset:1px;}
+
+  /* ===== Finance ===== */
+  .money-box{border-radius:20px; padding:18px 18px; background:linear-gradient(135deg,var(--maroon),var(--maroon-dark)); color:#fff; margin-bottom:12px;}
+  .money-box .lbl{font-size:12.5px; opacity:.85; font-weight:700;}
+  .money-box .amt{font-family:'Baloo 2'; font-size:26px; font-weight:800; margin-top:4px;}
+  .money-box.income{background:linear-gradient(135deg,#6FC7B8,#3F9C8C);}
+  .fin-cols{display:flex; gap:14px; margin-top:16px;}
+  .fin-col{flex:1;}
+  .fin-col h3{font-size:13.5px; margin:0; color:var(--maroon);}
+  .fin-item{margin-bottom:14px;}
+  .fin-item .row1{display:flex; justify-content:space-between; font-size:12.5px; font-weight:700; margin-bottom:6px; gap:6px;}
+  .bar-bg{height:8px; background:var(--pink-soft); border-radius:99px; overflow:hidden;}
+  .bar-fill{height:100%; border-radius:99px; background:var(--maroon);}
+  .add-link{font-size:11.5px; font-weight:800; color:var(--maroon); cursor:pointer;}
+  .add-link-row{display:flex; justify-content:space-between; margin-bottom:10px; align-items:center;}
+
+  /* ===== Travel ===== */
+  .trip-card{border:1.5px solid var(--line); border-radius:18px; padding:16px; margin-bottom:12px; background:#fff;}
+  .trip-top{display:flex; justify-content:space-between; align-items:center;}
+  .trip-name{font-weight:800; font-family:'Baloo 2'; color:var(--text); font-size:15px;}
+  .trip-amt{font-weight:800; color:var(--maroon); font-family:'Baloo 2';}
+  .trip-date{font-size:11.5px; color:var(--muted); margin-top:6px;}
+
+  /* ===== Child / profile ===== */
+  .child-card{display:flex; border:1.5px solid var(--line); border-radius:18px; overflow:hidden; margin-bottom:14px; background:#fff;}
+  .child-pic{width:96px; background:var(--pink-soft); display:flex; align-items:center; justify-content:center; font-size:26px; flex-shrink:0;}
+  .child-info{padding:12px 14px; flex:1;}
+  .child-info .name-row{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;}
+  .child-info .name-row .nm{font-weight:800; font-family:'Baloo 2'; font-size:14.5px;}
+  .gender{font-size:10.5px; font-weight:800; padding:3px 9px; border-radius:999px;}
+  .gender.f{background:#FBE1EA; color:#C24B7C;}
+  .gender.m{background:#DDEBFB; color:#3C77B8;}
+  .child-info .meta{font-size:12px; color:var(--muted); line-height:1.9;}
+
+  .profile-top{display:flex; align-items:center; gap:16px; margin-bottom:22px;}
+  .avatar{width:78px; height:78px; border-radius:24px; background:var(--pink-soft); display:flex; align-items:center; justify-content:center; font-size:30px;}
+  .profile-top .who strong{font-family:'Baloo 2'; font-size:17px; display:block;}
+  .profile-top .who span{font-size:12.5px; color:var(--muted);}
+  .plabel{font-size:11.5px; font-weight:800; color:var(--muted); margin:0 0 6px 4px;}
+  .partner-box{border:1.5px solid var(--line); border-radius:16px; padding:12px 14px; margin-top:8px; display:flex; align-items:center; gap:10px;}
+  .partner-box .em{font-size:22px;}
+  .partner-box .t div:first-child{font-weight:800; font-size:13.5px;}
+  .partner-box .t div:last-child{font-size:11.5px; color:var(--muted);}
+
+  /* ===== Bottom nav ===== */
+  .bottom-nav{position:absolute; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--line); display:flex; padding:8px 4px 12px; z-index:5;}
+  .nav-btn{flex:1; border:none; background:transparent; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; color:var(--muted); padding:4px 0;}
+  .nav-btn .nic{font-size:18px;}
+  .nav-btn .nav-label{font-size:9.5px; font-weight:700;}
+  .nav-btn.active{color:var(--maroon);}
+
+  .hint{font-size:11.5px; color:var(--muted); text-align:center; margin-top:14px; line-height:1.6;}
+  .search-field{display:flex; align-items:center; gap:8px; border:1.5px solid var(--line); border-radius:999px; padding:11px 16px; flex:1;}
+  .search-field input{border:none; outline:none; background:transparent; font-family:'Nunito'; font-size:13.5px; flex:1;}
+  .search-row{display:flex; gap:10px; margin-bottom:16px;}
+  .round-btn{width:42px; height:42px; border-radius:50%; background:var(--maroon); color:#fff; border:none; font-size:18px; cursor:pointer; flex-shrink:0;}
+  .section-pill{display:inline-block; background:var(--pink-soft); color:var(--maroon); font-weight:800; font-size:12px; padding:6px 14px; border-radius:999px; margin-bottom:14px;}
+  .loading{text-align:center; padding:40px 0; color:var(--muted); font-size:13px;}
+  .config-warning{position:fixed; inset:0; background:rgba(58,35,35,.75); display:flex; align-items:center; justify-content:center; z-index:50; padding:20px;}
+  .config-warning .box{background:#fff; border-radius:20px; padding:22px; max-width:360px; font-size:13.5px; line-height:1.7;}
+  .config-warning code{background:var(--pink-soft); padding:2px 6px; border-radius:6px; font-size:12px;}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ============ AUTH SCREEN ============ -->
+  <div id="auth">
+    <div class="blobs">
+      <div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div>
+      <div class="blob-row">
+        <div class="blob-flower"><div class="face">😊</div></div>
+        <div class="blob-circle">😊</div>
+        <div class="blob-square">😐</div>
+      </div>
+      <div class="star">⭐</div>
+    </div>
+
+    <div class="brand">Our Homie</div>
+    <p class="tagline">จัดการบ้านของเราด้วยกัน ทั้งช้อปปิ้ง ปฏิทิน การเงิน และลูก ๆ ที่แชร์กัน ครบในแอปเดียว</p>
+
+    <div class="segment">
+      <button class="active" id="tabSignIn" onclick="switchAuthTab('in')">Sign In</button>
+      <button id="tabSignUp" onclick="switchAuthTab('up')">Sign Up</button>
+    </div>
+
+    <div class="auth-msg" id="authMsg"></div>
+
+    <!-- sign in fields -->
+    <div id="signinFields">
+      <div class="field"><span class="ic">✉️</span><input id="siEmail" type="email" placeholder="Email"></div>
+      <div class="field"><span class="ic">🔒</span><input id="siPass" type="password" placeholder="Password"></div>
+      <button class="btn-primary" id="siBtn" onclick="handleSignIn()">→ Sign In</button>
+    </div>
+
+    <!-- sign up fields -->
+    <div id="signupFields">
+      <div class="field"><span class="ic">🙂</span><input id="suName" type="text" placeholder="ชื่อของคุณ"></div>
+      <div class="field"><span class="ic">✨</span><input id="suNick" type="text" placeholder="ชื่อเล่น"></div>
+      <div class="field"><span class="ic">✉️</span><input id="suEmail" type="email" placeholder="Email ของคุณ"></div>
+      <div class="field"><span class="ic">🔒</span><input id="suPass" type="password" placeholder="Password"></div>
+      <div class="field"><span class="ic">💌</span><input id="suPartner" type="email" placeholder="Email ของคู่รัก (ผูกบ้านเดียวกัน)"></div>
+      <button class="btn-primary" id="suBtn" onclick="handleSignUp()">→ Create account</button>
+    </div>
+
+    <div class="forgot" onclick="handleForgot()">Forgot password?</div>
+
+    <div class="auth-note">✳️ ระบบล็อกอินนี้ผูกกับ Supabase Auth (Email + Password) จริง และเก็บข้อมูลลง Supabase database ตามที่ตั้งค่าไว้ใน CONFIG ด้านล่างของโค้ด</div>
+  </div>
+
+  <!-- ============ APP SCREENS ============ -->
+  <div id="app" style="display:none;">
+
+    <!-- HOME -->
+    <section class="screen active" id="screen-home">
+      <div class="topbar">
+        <h1>🏠 Home</h1>
+        <button class="icon-btn" onclick="goScreen('profile')">👤</button>
+      </div>
+
+      <div class="stat-row" id="homeStats"></div>
+
+      <div class="section-title"><h2>Today's</h2><span class="view-all" onclick="goScreen('calendar')">View All →</span></div>
+      <div class="list-box" id="homeToday"></div>
+
+      <div class="section-title"><h2>Shopping List</h2><span class="view-all" onclick="goScreen('shopping')">View All →</span></div>
+      <div class="list-box" id="homeShoppingPreview"></div>
+
+      <div class="section-title"><h2>Up Coming Events</h2><span class="view-all" onclick="goScreen('calendar')">View All →</span></div>
+      <div class="list-box" id="homeEvents"></div>
+    </section>
+
+    <!-- SHOPPING -->
+    <section class="screen" id="screen-shopping">
+      <div class="topbar"><h1>🛍️ Shopping List</h1><button class="icon-btn" onclick="goScreen('home')">🏠</button></div>
+      <div class="chip-row" id="shopFilters"></div>
+      <div class="list-box" id="shopList"></div>
+      <button class="add-btn" onclick="addShoppingItem()">+ Add item</button>
+    </section>
+
+    <!-- CALENDAR -->
+    <section class="screen" id="screen-calendar">
+      <div class="topbar"><h1>🗓️ Calendar</h1><button class="icon-btn" onclick="goScreen('home')">🏠</button></div>
+      <div class="toggle-pair">
+        <div class="pill on-shared" id="pillShared" onclick="setCalMode('shared')">● Shared</div>
+        <div class="pill" id="pillPersonal" onclick="setCalMode('personal')">● Personal</div>
+      </div>
+      <div class="tab-row">
+        <button class="active" data-t="month" onclick="setCalTab('month',this)">▦ Month</button>
+        <button data-t="list" onclick="setCalTab('list',this)">☰ List</button>
+        <button data-t="mood" onclick="setCalTab('mood',this)">🙂 Mood</button>
+      </div>
+
+      <div class="mood-q">🙂 How are you feeling today?</div>
+      <div class="mood-row" id="moodPicker"></div>
+
+      <div id="moodLog"></div>
+
+      <div class="cal-head"><button class="cal-nav" disabled>‹</button><strong id="calMonthLabel">-</strong><button class="cal-nav" disabled>›</button></div>
+      <div class="grid7" id="calGrid"></div>
+    </section>
+
+    <!-- FINANCE -->
+    <section class="screen" id="screen-finance">
+      <div class="topbar"><h1>💳 Finance</h1><button class="icon-btn" onclick="goScreen('home')">🏠</button></div>
+      <div class="money-box"><div class="lbl">This month's spending</div><div class="amt" id="finSpendTotal">฿ 0</div></div>
+      <div class="money-box income"><div class="lbl">This month's income</div><div class="amt" id="finIncomeTotal">฿ 0</div></div>
+
+      <div class="fin-cols">
+        <div class="fin-col">
+          <div class="add-link-row"><h3>Income</h3><span class="add-link" onclick="addFinanceItem('income')">+ Add</span></div>
+          <div id="finIncomeList"></div>
+        </div>
+        <div class="fin-col">
+          <div class="add-link-row"><h3>Spending</h3><span class="add-link" onclick="addFinanceItem('spending')">+ Add</span></div>
+          <div id="finSpendList"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRAVEL -->
+    <section class="screen" id="screen-travel">
+      <div class="topbar"><h1>✈️ Travel</h1><button class="icon-btn" onclick="goScreen('home')">🏠</button></div>
+      <div id="tripList"></div>
+      <button class="add-btn" onclick="addTrip()">+ Add trip</button>
+    </section>
+
+    <!-- CHILD -->
+    <section class="screen" id="screen-child">
+      <div class="topbar"><h1>👶 My Child</h1><button class="icon-btn" onclick="goScreen('home')">🏠</button></div>
+      <div class="search-row">
+        <div class="search-field">🔍 <input id="childSearch" placeholder="Search child..." oninput="renderChildren()"></div>
+        <button class="round-btn" onclick="addChild()">+</button>
+      </div>
+      <div class="section-pill">My child</div>
+      <div id="childList"></div>
+    </section>
+
+    <!-- PROFILE -->
+    <section class="screen" id="screen-profile">
+      <div class="topbar"><h1>Profile</h1><button class="icon-btn" onclick="handleSignOut()">↩️</button></div>
+      <div class="profile-top">
+        <div class="avatar" id="pAvatar">🙂</div>
+        <div class="who"><strong id="pName">-</strong><span id="pEmail">-</span></div>
+      </div>
+      <p class="plabel">NAME</p>
+      <div class="field"><input id="pfName"></div>
+      <p class="plabel">NICKNAME</p>
+      <div class="field"><input id="pfNick"></div>
+      <p class="plabel">AGE</p>
+      <div class="field"><input id="pfAge" type="number"></div>
+      <p class="plabel">BIRTHDAY</p>
+      <div class="field"><input id="pfBirthday" type="date"></div>
+      <button class="btn-primary" onclick="saveProfile()">Save changes</button>
+
+      <p class="plabel" style="margin-top:22px;">MY HOMIE</p>
+      <div class="partner-box" id="partnerBox">
+        <div class="em">💌</div>
+        <div class="t"><div>ยังไม่มีคู่ผูกด้วย</div><div>รอคู่รักสมัครด้วยอีเมลที่ตรงกัน</div></div>
+      </div>
+    </section>
+
+    <!-- BOTTOM NAV -->
+    <div class="bottom-nav" id="bottomNav"></div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   CONFIG — ใส่ URL และ anon key จาก Supabase project ของคุณตรงนี้
+   (Settings → API ใน Supabase Dashboard)
+   ===================================================================== */
+const SUPABASE_URL = 'https://mygautolahhzphsyswkd.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15Z2F1dG9sYWhoenBoc3lzd2tkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3NjI4MTQsImV4cCI6MjEwNDMzODgxNH0.zrgQNMMxRnW2fkxlzVjzfMq8oX8MeZMaQkv4aQe_mXI';
+
+let sb = null;
+if (SUPABASE_URL.includes('YOUR-PROJECT') || SUPABASE_ANON_KEY.includes('YOUR-ANON')) {
+  document.addEventListener('DOMContentLoaded', () => {
+    const w = document.createElement('div');
+    w.className = 'config-warning';
+    w.innerHTML = `<div class="box">
+      <strong>⚙️ ยังไม่ได้ตั้งค่า Supabase</strong><br><br>
+      เปิดไฟล์นี้ด้วยตัวแก้ไขข้อความ แล้วแก้ค่า <code>SUPABASE_URL</code> และ
+      <code>SUPABASE_ANON_KEY</code> ที่ด้านบนของแท็ก &lt;script&gt; ให้เป็นค่าจริง
+      จาก Supabase Dashboard → Settings → API แล้วอย่าลืมรัน
+      <code>supabase-schema.sql</code> ใน SQL Editor ก่อนใช้งานด้วยนะครับ</div>`;
+    document.body.appendChild(w);
+  });
+} else {
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+/* ---------- app state ---------- */
+let currentUser = null, currentProfile = null, partnerProfile = null, currentHouseholdId = null;
+let shoppingData = [], trips = [], children = [], financeItems = [], calendarEvents = [], monthMoods = [];
+let shopFilter = 'All', selectedMood = null;
+
+const catColors = {Food:'#F4A25E', Home:'#B79CE0', Health:'#8FD1EC', Child:'#F5A6B6'};
+const moods = [
+  {key:'happy', ic:'😊', label:'Happy', color:'#F9C8D4'},
+  {key:'calm', ic:'😌', label:'Calm', color:'#B79CE0'},
+  {key:'sad', ic:'😔', label:'Sad', color:'#8FD1EC'},
+  {key:'angry', ic:'😤', label:'Angry', color:'#F4A25E'},
+  {key:'tired', ic:'😑', label:'Tired', color:'#F5C63D'},
+];
+const navItems = [
+  {id:'home', ic:'🏠', label:'Home'},
+  {id:'shopping', ic:'🛒', label:'Shopping'},
+  {id:'calendar', ic:'📅', label:'Calendar'},
+  {id:'finance', ic:'💳', label:'Finance'},
+  {id:'travel', ic:'✈️', label:'Travel'},
+  {id:'child', ic:'👶', label:'Child'},
+  {id:'profile', ic:'👤', label:'Profile'},
+];
+const todayStr = () => new Date().toISOString().slice(0,10);
+const monthStr = () => new Date().toISOString().slice(0,7);
+const val = id => document.getElementById(id).value.trim();
+
+/* ---------- auth UI ---------- */
+function switchAuthTab(which){
+  document.getElementById('tabSignIn').classList.toggle('active', which==='in');
+  document.getElementById('tabSignUp').classList.toggle('active', which==='up');
+  document.getElementById('signinFields').style.display = which==='in' ? 'block' : 'none';
+  document.getElementById('signupFields').style.display = which==='up' ? 'block' : 'none';
+  hideAuthMsg();
+}
+function showAuthMsg(text, ok){
+  const m = document.getElementById('authMsg');
+  m.textContent = text; m.className = 'auth-msg show ' + (ok ? 'ok' : 'err');
+}
+function hideAuthMsg(){ document.getElementById('authMsg').className = 'auth-msg'; }
+
+async function handleSignUp(){
+  if(!sb) return;
+  const name = val('suName'), nickname = val('suNick'), email = val('suEmail'),
+        password = val('suPass'), partnerEmail = val('suPartner');
+  if(!name || !email || !password){ showAuthMsg('กรอกชื่อ อีเมล และรหัสผ่านให้ครบ'); return; }
+  document.getElementById('suBtn').disabled = true;
+  // เก็บชื่อ/ชื่อเล่น/อีเมลคู่รัก ไว้ใน user metadata ของ Supabase เอง (ไม่ใช้ localStorage)
+  // เพื่อให้ยังใช้สร้างบ้าน+โปรไฟล์ได้ถูกต้อง แม้โปรเจกต์จะบังคับให้ยืนยันอีเมลก่อน
+  const { data, error } = await sb.auth.signUp({
+    email, password,
+    options: { data: { name, nickname, partner_email: partnerEmail || null } }
+  });
+  if(error){ showAuthMsg(error.message); document.getElementById('suBtn').disabled = false; return; }
+  if(!data.session){
+    showAuthMsg('สมัครสำเร็จ! กรุณากดลิงก์ยืนยันในอีเมลก่อน แล้วค่อยกลับมา Sign In', true);
+    document.getElementById('suBtn').disabled = false;
+    return;
+  }
+  // ไม่ได้บังคับยืนยันอีเมล -> มี session ทันที เข้าระบบต่อได้เลย
+  try{ await postLogin(); }
+  catch(e){ showAuthMsg('เข้าสู่ระบบไม่สำเร็จ: ' + e.message); }
+  document.getElementById('suBtn').disabled = false;
+}
+
+async function setupHouseholdAndProfile(user, name, nickname, partnerEmail){
+  const { data: invites } = await sb.from('household_invites')
+    .select('*').eq('invited_email', user.email).eq('status','pending').limit(1);
+  let householdId;
+  if(invites && invites.length){
+    householdId = invites[0].household_id;
+    await sb.from('household_invites').update({status:'accepted'}).eq('id', invites[0].id);
+  } else {
+    const { data: h, error: herr } = await sb.from('households').insert({}).select().single();
+    if(herr) throw herr;
+    householdId = h.id;
+    if(partnerEmail){
+      await sb.from('household_invites').insert({ household_id: householdId, invited_email: partnerEmail, invited_by: user.id });
+    }
+  }
+  const { error: perr } = await sb.from('profiles').insert({ id: user.id, household_id: householdId, email: user.email, name, nickname });
+  if(perr) throw perr;
+}
+
+async function handleSignIn(){
+  if(!sb) return;
+  const email = val('siEmail'), password = val('siPass');
+  if(!email || !password){ showAuthMsg('กรอกอีเมลและรหัสผ่าน'); return; }
+  document.getElementById('siBtn').disabled = true;
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if(error){ showAuthMsg(error.message); document.getElementById('siBtn').disabled = false; return; }
+  await postLogin();
+  document.getElementById('siBtn').disabled = false;
+}
+
+async function handleForgot(){
+  if(!sb) return;
+  const email = prompt('กรอกอีเมลที่ใช้สมัคร เพื่อรับลิงก์ตั้งรหัสผ่านใหม่:');
+  if(!email) return;
+  const { error } = await sb.auth.resetPasswordForEmail(email);
+  alert(error ? 'ผิดพลาด: ' + error.message : 'ส่งอีเมลรีเซ็ตรหัสผ่านแล้ว กรุณาเช็คอินบ็อกซ์');
+}
+
+async function handleSignOut(){
+  if(sb) await sb.auth.signOut();
+  location.reload();
+}
+
+async function postLogin(){
+  const { data: { user } } = await sb.auth.getUser();
+  currentUser = user;
+  let { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
+  if(!profile){
+    // ยังไม่มีโปรไฟล์ (เพิ่งยืนยันอีเมลแล้ว sign in เป็นครั้งแรก) -> สร้างบ้าน+โปรไฟล์เดี๋ยวนี้
+    const meta = user.user_metadata || {};
+    await setupHouseholdAndProfile(user, meta.name || '', meta.nickname || '', meta.partner_email || '');
+    const { data: freshProfile } = await sb.from('profiles').select('*').eq('id', user.id).single();
+    profile = freshProfile;
+  }
+  currentProfile = profile;
+  currentHouseholdId = profile.household_id;
+  const { data: members } = await sb.from('profiles').select('*').eq('household_id', currentHouseholdId);
+  partnerProfile = (members || []).find(m => m.id !== user.id) || null;
+  document.getElementById('auth').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  goScreen('home');
+  renderProfileScreen();
+  await loadAll();
+  subscribeRealtime();
+}
+
+/* ---------- session bootstrap ---------- */
+(async function init(){
+  if(!sb) return;
+  const { data: { session } } = await sb.auth.getSession();
+  if(session){ await postLogin(); }
+})();
+
+/* ---------- nav ---------- */
+function goScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+id).classList.add('active');
+  renderNav(id);
+}
+function renderNav(activeId){
+  document.getElementById('bottomNav').innerHTML = navItems.map(n=>`
+    <button class="nav-btn ${n.id===activeId?'active':''}" onclick="goScreen('${n.id}')">
+      <span class="nic">${n.ic}</span><span class="nav-label">${n.label}</span>
+    </button>`).join('');
+}
+
+/* ---------- load everything ---------- */
+async function loadAll(){
+  await Promise.all([loadShopping(), loadCalendar(), loadFinance(), loadTrips(), loadChildren()]);
+  renderHomeStats();
+}
+function subscribeRealtime(){
+  if(!currentHouseholdId) return;
+  sb.channel('household-'+currentHouseholdId)
+    .on('postgres_changes', {event:'*', schema:'public', table:'shopping_items', filter:`household_id=eq.${currentHouseholdId}`}, loadShopping)
+    .on('postgres_changes', {event:'*', schema:'public', table:'calendar_moods', filter:`household_id=eq.${currentHouseholdId}`}, loadCalendar)
+    .on('postgres_changes', {event:'*', schema:'public', table:'finance_items', filter:`household_id=eq.${currentHouseholdId}`}, loadFinance)
+    .on('postgres_changes', {event:'*', schema:'public', table:'trips', filter:`household_id=eq.${currentHouseholdId}`}, loadTrips)
+    .on('postgres_changes', {event:'*', schema:'public', table:'children', filter:`household_id=eq.${currentHouseholdId}`}, loadChildren)
+    .subscribe();
+}
+
+/* ---------- HOME ---------- */
+function renderHomeStats(){
+  const undone = shoppingData.filter(i=>!i.done).length;
+  const spend = financeItems.filter(f=>f.type==='spending').reduce((a,b)=>a+Number(b.amount),0);
+  const income = financeItems.filter(f=>f.type==='income').reduce((a,b)=>a+Number(b.amount),0);
+  const pct = income ? Math.round((spend/income)*100) : 0;
+  document.getElementById('homeStats').innerHTML = `
+    <div class="stat-card"><div class="em">🛒</div><div class="stat-num">${undone}</div><div class="stat-label">Shopping</div></div>
+    <div class="stat-card"><div class="em">📅</div><div class="stat-num">${calendarEvents.length}</div><div class="stat-label">Events</div></div>
+    <div class="stat-card"><div class="em">✈️</div><div class="stat-num">${trips.length}</div><div class="stat-label">Travel Trip</div></div>
+    <div class="stat-card"><div class="em">👶</div><div class="stat-num">${children.length}</div><div class="stat-label">Child</div></div>
+    <div class="stat-card"><div class="em">🐷</div><div class="stat-num">${pct}%</div><div class="stat-label">Budget</div></div>`;
+  const todayBox = document.getElementById('homeToday');
+  const upcoming = calendarEvents.filter(e=>e.event_date >= todayStr()).slice(0,1);
+  todayBox.innerHTML = upcoming.length ? upcoming.map(e=>`
+    <div class="list-item"><div class="dot-ic">📌</div><div class="item-name">${e.title}</div></div>`).join('')
+    : `<div class="empty-note">ยังไม่มีนัดหมายวันนี้</div>`;
+  document.getElementById('homeEvents').innerHTML = calendarEvents.slice(0,3).map(e=>`
+    <div class="list-item"><div class="date-chip">${e.event_date.slice(8,10)}</div><div class="item-name">${e.title}</div></div>`).join('')
+    || `<div class="empty-note">ยังไม่มีกิจกรรมล่วงหน้า</div>`;
+  renderHomeShoppingPreview();
+}
+function renderHomeShoppingPreview(){
+  const box = document.getElementById('homeShoppingPreview');
+  box.innerHTML = shoppingData.slice(0,3).map(i=>`
+    <div class="list-item">
+      <div class="chk ${i.done?'done':''}">${i.done?'✓':''}</div>
+      <div class="item-name ${i.done?'done':''}">${i.name}</div>
+    </div>`).join('') || `<div class="empty-note">ยังไม่มีของในลิสต์</div>`;
+}
+
+/* ---------- SHOPPING ---------- */
+async function loadShopping(){
+  const { data } = await sb.from('shopping_items').select('*').eq('household_id', currentHouseholdId).order('created_at', {ascending:false});
+  shoppingData = data || [];
+  renderShopping();
+  renderHomeStats();
+}
+function renderShopping(){
+  const cats = ['All','Food','Home','Health','Child'];
+  const labels = {All:'🗂️ All', Food:'🍜 Food', Home:'🏠 Home', Health:'💊 Health', Child:'👶 Child'};
+  document.getElementById('shopFilters').innerHTML = cats.map(c=>
+    `<div class="chip ${shopFilter===c?'active':''}" onclick="setShopFilter('${c}')">${labels[c]}</div>`).join('');
+  const items = shoppingData.filter(i=>shopFilter==='All'||i.category===shopFilter);
+  document.getElementById('shopList').innerHTML = items.map(i=>`
+    <div class="list-item">
+      <div class="chk ${i.done?'done':''}" onclick="toggleShop('${i.id}', ${i.done})">${i.done?'✓':''}</div>
+      <div class="item-name ${i.done?'done':''}">${i.name}</div>
+      <div class="tag" style="color:${catColors[i.category]}; background:${catColors[i.category]}22;">${i.category}</div>
+    </div>`).join('') || `<div class="empty-note">ไม่มีรายการในหมวดนี้</div>`;
+}
+function setShopFilter(c){ shopFilter=c; renderShopping(); }
+async function toggleShop(id, done){
+  await sb.from('shopping_items').update({done: !done}).eq('id', id);
+}
+async function addShoppingItem(){
+  const name = prompt('เพิ่มของที่ต้องซื้อ:');
+  if(!name) return;
+  const category = prompt('หมวดหมู่ (Food / Home / Health / Child):', 'Home') || 'Home';
+  await sb.from('shopping_items').insert({ household_id: currentHouseholdId, name, category, created_by: currentUser.id });
+}
+
+/* ---------- CALENDAR ---------- */
+async function loadCalendar(){
+  const from = monthStr()+'-01';
+  const { data } = await sb.from('calendar_moods').select('*').eq('household_id', currentHouseholdId).gte('log_date', from);
+  monthMoods = data || [];
+  const mine = monthMoods.find(m=>m.user_id===currentUser.id && m.log_date===todayStr());
+  selectedMood = mine ? mine.mood : null;
+  const { data: events } = await sb.from('calendar_events').select('*').eq('household_id', currentHouseholdId).order('event_date', {ascending:true});
+  calendarEvents = events || [];
+  renderMoodPicker(); renderMoodLog(); renderCalGrid();
+  renderHomeStats();
+}
+function renderMoodPicker(){
+  document.getElementById('moodPicker').innerHTML = moods.map(m=>`
+    <div class="mood-opt ${selectedMood===m.key?'sel':''}" onclick="pickMood('${m.key}')">
+      <div class="mood-face" style="background:${m.color}33;">${m.ic}</div><span>${m.label}</span>
+    </div>`).join('');
+}
+async function pickMood(key){
+  selectedMood = key;
+  renderMoodPicker();
+  await sb.from('calendar_moods').upsert(
+    { household_id: currentHouseholdId, user_id: currentUser.id, mood: key, log_date: todayStr() },
+    { onConflict: 'user_id,log_date' });
+}
+function renderMoodLog(){
+  const today = todayStr();
+  const entries = monthMoods.filter(m=>m.log_date===today);
+  document.getElementById('moodLog').innerHTML = entries.map(e=>{
+    const mood = moods.find(m=>m.key===e.mood) || moods[4];
+    const who = e.user_id===currentUser.id ? (currentProfile?.nickname||'คุณ') : (partnerProfile?.nickname||'คู่ของคุณ');
+    return `<div class="mood-log"><div class="mf" style="background:${mood.color}55;">${mood.ic}</div>
+      <div class="mt"><div><strong>${who}</strong> feeling ${mood.label.toLowerCase()}</div><div>${e.log_date}</div></div></div>`;
+  }).join('') || `<div class="empty-note">วันนี้ยังไม่มีใครบันทึกอารมณ์</div>`;
+}
+function renderCalGrid(){
+  const now = new Date();
+  const y = now.getFullYear(), mo = now.getMonth();
+  document.getElementById('calMonthLabel').textContent = now.toLocaleDateString('en-US',{month:'short', year:'numeric'});
+  const firstDow = new Date(y, mo, 1).getDay();
+  const daysInMonth = new Date(y, mo+1, 0).getDate();
+  const dayColor = {};
+  monthMoods.forEach(m=>{ const d = Number(m.log_date.slice(8,10)); const mood = moods.find(x=>x.key===m.mood); if(mood) dayColor[d] = mood.color; });
+  let html = ['S','M','T','W','T','F','S'].map(d=>`<div class="dow">${d}</div>`).join('');
+  for(let i=0;i<firstDow;i++) html += `<div class="day empty"></div>`;
+  for(let d=1; d<=daysInMonth; d++){
+    const bg = dayColor[d] ? dayColor[d]+'55' : '';
+    html += `<div class="day ${d===now.getDate()?'today':''}" style="${bg?`background:${bg};`:''}">${d}</div>`;
+  }
+  document.getElementById('calGrid').innerHTML = html;
+}
+function setCalMode(mode){
+  document.getElementById('pillShared').className = 'pill' + (mode==='shared' ? ' on-shared' : '');
+  document.getElementById('pillPersonal').className = 'pill' + (mode==='personal' ? ' on-personal' : '');
+}
+function setCalTab(t, btn){
+  document.querySelectorAll('.tab-row button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+/* ---------- FINANCE ---------- */
+async function loadFinance(){
+  const { data } = await sb.from('finance_items').select('*').eq('household_id', currentHouseholdId).eq('month', monthStr());
+  financeItems = data || [];
+  renderFinance();
+  renderHomeStats();
+}
+function renderFinance(){
+  const income = financeItems.filter(f=>f.type==='income');
+  const spend = financeItems.filter(f=>f.type==='spending');
+  const incomeTotal = income.reduce((a,b)=>a+Number(b.amount),0);
+  const spendTotal = spend.reduce((a,b)=>a+Number(b.amount),0);
+  document.getElementById('finIncomeTotal').textContent = '฿ ' + incomeTotal.toLocaleString();
+  document.getElementById('finSpendTotal').textContent = '฿ ' + spendTotal.toLocaleString();
+  document.getElementById('finIncomeList').innerHTML = income.map(i=>{
+    const pct = incomeTotal ? Math.round((i.amount/incomeTotal)*100) : 0;
+    return `<div class="fin-item"><div class="row1"><span>${i.icon} ${i.name}</span><span>฿${Number(i.amount).toLocaleString()}</span></div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%; background:var(--teal);"></div></div></div>`;
+  }).join('') || `<div class="empty-note">ยังไม่มีรายรับ</div>`;
+  document.getElementById('finSpendList').innerHTML = spend.map(s=>{
+    const budget = Number(s.budget)||0;
+    const pct = budget ? Math.min(100, Math.round((s.amount/budget)*100)) : 100;
+    const over = budget && s.amount > budget;
+    return `<div class="fin-item"><div class="row1"><span>${s.icon} ${s.name}</span><span>฿${Number(s.amount).toLocaleString()}${budget? ' / ฿'+budget.toLocaleString():''}</span></div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%; ${over?'background:#D9534F;':''}"></div></div></div>`;
+  }).join('') || `<div class="empty-note">ยังไม่มีรายจ่าย</div>`;
+}
+async function addFinanceItem(type){
+  const name = prompt(type==='income' ? 'ชื่อรายรับ:' : 'ชื่อรายจ่าย:');
+  if(!name) return;
+  const amount = Number(prompt('จำนวนเงิน (บาท):', '0')) || 0;
+  let budget = 0;
+  if(type==='spending') budget = Number(prompt('งบที่ตั้งไว้ (บาท, เว้นว่าง = ไม่ตั้ง):', '0')) || 0;
+  await sb.from('finance_items').insert({
+    household_id: currentHouseholdId, type, name, amount, budget,
+    month: monthStr(), created_by: currentUser.id, icon: type==='income' ? '💰' : '🧾'
+  });
+}
+
+/* ---------- TRAVEL ---------- */
+async function loadTrips(){
+  const { data } = await sb.from('trips').select('*').eq('household_id', currentHouseholdId).order('trip_date', {ascending:true});
+  trips = data || [];
+  renderTrips();
+  renderHomeStats();
+}
+function renderTrips(){
+  document.getElementById('tripList').innerHTML = trips.map(t=>`
+    <div class="trip-card">
+      <div class="trip-top"><span class="trip-name">${t.name}</span><span class="trip-amt">฿ ${Number(t.amount).toLocaleString()}</span></div>
+      <div class="trip-date">📍 ${t.trip_date || 'ยังไม่กำหนดวันที่'}</div>
+    </div>`).join('') || `<div class="empty-note">ยังไม่มีทริป</div>`;
+}
+async function addTrip(){
+  const name = prompt('ชื่อทริป:');
+  if(!name) return;
+  const amount = Number(prompt('งบประมาณ (บาท):', '0')) || 0;
+  const trip_date = prompt('วันที่ (YYYY-MM-DD):', '') || null;
+  await sb.from('trips').insert({ household_id: currentHouseholdId, name, amount, trip_date, created_by: currentUser.id });
+}
+
+/* ---------- CHILD ---------- */
+async function loadChildren(){
+  const { data } = await sb.from('children').select('*').eq('household_id', currentHouseholdId);
+  children = data || [];
+  renderChildren();
+  renderHomeStats();
+}
+function renderChildren(){
+  const q = (document.getElementById('childSearch')?.value || '').toLowerCase();
+  const list = children.filter(c=>c.name.toLowerCase().includes(q));
+  document.getElementById('childList').innerHTML = list.map(c=>`
+    <div class="child-card">
+      <div class="child-pic">${c.gender==='f'?'👧':'👦'}</div>
+      <div class="child-info">
+        <div class="name-row"><span class="nm">${c.name}</span><span class="gender ${c.gender}">${c.gender==='f'?'Female':'Male'}</span></div>
+        <div class="meta">Age: ${c.age||'-'}<br>Weight: ${c.weight||'-'}<br>Birthday: ${c.birthday||'-'}</div>
+      </div>
+    </div>`).join('') || `<div class="empty-note">ยังไม่มีข้อมูลลูก</div>`;
+}
+async function addChild(){
+  const name = prompt('ชื่อลูก:');
+  if(!name) return;
+  const gender = (prompt('เพศ (f = female / m = male):', 'f') || 'f').toLowerCase();
+  const age = prompt('อายุ:', '') || '';
+  const weight = prompt('น้ำหนัก:', '') || '';
+  const birthday = prompt('วันเกิด (YYYY-MM-DD):', '') || null;
+  await sb.from('children').insert({ household_id: currentHouseholdId, name, gender: gender==='m'?'m':'f', age, weight, birthday, created_by: currentUser.id });
+}
+
+/* ---------- PROFILE ---------- */
+function renderProfileScreen(){
+  if(!currentProfile) return;
+  document.getElementById('pName').textContent = currentProfile.name || '-';
+  document.getElementById('pEmail').textContent = currentProfile.email || '-';
+  document.getElementById('pfName').value = currentProfile.name || '';
+  document.getElementById('pfNick').value = currentProfile.nickname || '';
+  document.getElementById('pfAge').value = currentProfile.age || '';
+  document.getElementById('pfBirthday').value = currentProfile.birthday || '';
+  const box = document.getElementById('partnerBox');
+  if(partnerProfile){
+    box.innerHTML = `<div class="em">💞</div><div class="t"><div>${partnerProfile.nickname||partnerProfile.name}</div><div>${partnerProfile.email}</div></div>`;
+  } else {
+    box.innerHTML = `<div class="em">💌</div><div class="t"><div>ยังไม่มีคู่ผูกด้วย</div><div>รอคู่รักสมัครด้วยอีเมลที่ตรงกัน</div></div>`;
+  }
+}
+async function saveProfile(){
+  const update = {
+    name: val('pfName'), nickname: val('pfNick'),
+    age: document.getElementById('pfAge').value ? Number(document.getElementById('pfAge').value) : null,
+    birthday: document.getElementById('pfBirthday').value || null,
+  };
+  const { error } = await sb.from('profiles').update(update).eq('id', currentUser.id);
+  if(error){ alert('บันทึกไม่สำเร็จ: ' + error.message); return; }
+  Object.assign(currentProfile, update);
+  renderProfileScreen();
+  alert('บันทึกโปรไฟล์แล้ว');
+}
+</script>
+</body>
+</html>
