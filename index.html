@@ -211,7 +211,8 @@
   .fin-item .row1{display:flex; justify-content:space-between; align-items:center; font-size:12.5px; font-weight:700; margin-bottom:6px; gap:6px;}
   .fin-item .fin-date{font-size:10px; color:var(--muted); font-weight:700; margin-bottom:0;}
   .fin-item .fin-score{font-size:10px; color:var(--muted); font-weight:800; margin-bottom:4px;}
-  .fin-divider{height:1.5px; background:var(--line); margin:4px 0 12px;}
+  .fin-divider{height:4px; background:linear-gradient(90deg, var(--pink-soft), var(--pink), var(--pink-soft)); border-radius:99px; margin:14px 0 12px;}
+  .fin-detail-label{font-size:10.5px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin-bottom:8px;}
   .fin-summary{margin-bottom:0;}
   .fin-summary-item{margin-bottom:12px;}
   .fin-summary-item .row1{display:flex; justify-content:space-between; align-items:center; font-size:12.5px; font-weight:700; margin-bottom:5px; gap:6px;}
@@ -225,11 +226,25 @@
   .add-link-row{display:flex; justify-content:space-between; margin-bottom:10px; align-items:center;}
 
   /* ===== Travel ===== */
-  .trip-card{border:1.5px solid var(--line); border-radius:18px; padding:16px; margin-bottom:12px; background:#fff;}
-  .trip-top{display:flex; justify-content:space-between; align-items:center;}
+  .trip-nav{display:flex; gap:10px; margin-bottom:14px;}
+  .trip-nav select{flex:1; border:1.5px solid var(--line); border-radius:14px; padding:9px 10px; font-family:'Nunito'; font-size:13px; font-weight:700; color:var(--text); background:#fff;}
+  .all-toggle-btn{flex-shrink:0; border:1.5px solid var(--line); background:#fff; color:var(--muted); font-family:'Baloo 2'; font-weight:700; font-size:13px; padding:9px 18px; border-radius:14px; cursor:pointer;}
+  .all-toggle-btn.active{background:var(--maroon); color:#fff; border-color:var(--maroon);}
+  .trip-card{border:1.5px solid var(--line); border-radius:18px; padding:16px; margin-bottom:12px; background:#fff; cursor:pointer; transition:.15s;}
+  .trip-card:hover{border-color:var(--pink);}
+  .trip-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
   .trip-name{font-weight:800; font-family:'Baloo 2'; color:var(--text); font-size:15px;}
-  .trip-amt{font-weight:800; color:var(--maroon); font-family:'Baloo 2';}
+  .trip-amt{font-weight:800; color:var(--maroon); font-family:'Baloo 2'; margin-top:4px; display:block; text-align:right;}
   .trip-date{font-size:11.5px; color:var(--muted); margin-top:6px;}
+  .trip-view-detail{font-size:11px; font-weight:800; color:var(--maroon); white-space:nowrap;}
+  .modal-subtitle{font-size:12.5px; font-weight:800; color:var(--maroon); margin:14px 0 8px;}
+  .field-row{display:flex; gap:8px;}
+  .field-row .field{flex:1;}
+  .field-row .field input{width:100%;}
+  .field-label{font-size:11px; font-weight:700; color:var(--muted); min-width:64px;}
+  .trip-sum-row{display:flex; justify-content:space-between; align-items:center; background:var(--pink-soft); border-radius:14px; padding:12px 16px; margin:12px 0 16px; font-weight:800; color:var(--maroon); font-family:'Baloo 2';}
+  .modal-delete{text-align:center; margin-top:10px; color:#C0392B; font-size:12.5px; font-weight:700; cursor:pointer;}
+  .modal-box.wide{max-width:340px; max-height:85vh; overflow-y:auto;}
 
   /* ===== Child / profile ===== */
   .child-card{display:flex; border:1.5px solid var(--line); border-radius:18px; overflow:hidden; margin-bottom:14px; background:#fff;}
@@ -439,12 +454,14 @@
           <div class="add-link-row"><h3>Income</h3><span class="add-link" onclick="openAddFinanceModal('income')">+ Add</span></div>
           <div id="finIncomeSummary" class="fin-summary"></div>
           <div class="fin-divider"></div>
+          <div class="fin-detail-label">📋 รายการที่บันทึก</div>
           <div class="fin-scroll"><div id="finIncomeList"></div></div>
         </div>
         <div class="fin-col">
           <div class="add-link-row"><h3>Spending</h3><span class="add-link" onclick="openAddFinanceModal('spending')">+ Add</span></div>
           <div id="finSpendSummary" class="fin-summary"></div>
           <div class="fin-divider"></div>
+          <div class="fin-detail-label">📋 รายการที่บันทึก</div>
           <div class="fin-scroll"><div id="finSpendList"></div></div>
         </div>
       </div>
@@ -465,9 +482,45 @@
     <!-- TRAVEL -->
     <section class="screen" id="screen-travel">
       <div class="topbar"><h1>✈️ Travel</h1><button class="icon-btn" onclick="goScreen('home')">🏠</button></div>
+
+      <div class="trip-nav">
+        <select id="tripMonthSel" onchange="onTripFilterChange()"></select>
+        <select id="tripYearSel" onchange="onTripFilterChange()"></select>
+        <button class="all-toggle-btn" id="tripAllBtn" onclick="toggleTripAll()">All</button>
+      </div>
+
+      <div class="money-box"><div class="lbl">ค่าใช้จ่ายทั้งหมด</div><div class="amt" id="tripTotalAmt">฿ 0</div></div>
+
+      <div class="section-title"><h2>สถานที่ & ค่าใช้จ่าย</h2></div>
+      <div class="fin-chart" id="tripChart"></div>
+
+      <div class="section-title"><h2>ทริปทั้งหมด</h2></div>
       <div id="tripList"></div>
-      <button class="add-btn" onclick="addTrip()">+ Add trip</button>
+
+      <button class="add-btn" onclick="openAddTripModal()">+ Add Trip</button>
     </section>
+
+    <!-- ADD/EDIT TRIP MODAL -->
+    <div class="modal-overlay" id="tripModal">
+      <div class="modal-box wide">
+        <h3 id="tripModalTitle">เพิ่มทริป</h3>
+        <div class="field"><span class="ic">📍</span><input type="text" id="tripWhere" placeholder="สถานที่ (Where)"></div>
+        <div class="field-row">
+          <div class="field"><input type="date" id="tripStart"></div>
+          <div class="field"><input type="date" id="tripEnd"></div>
+        </div>
+        <div class="modal-subtitle">Detailed</div>
+        <div class="field"><span class="field-label">Food</span><input type="number" id="tripFood" placeholder="0" oninput="updateTripSum()"></div>
+        <div class="field"><span class="field-label">Room</span><input type="number" id="tripRoom" placeholder="0" oninput="updateTripSum()"></div>
+        <div class="field"><span class="field-label">Oil</span><input type="number" id="tripOil" placeholder="0" oninput="updateTripSum()"></div>
+        <div class="field"><span class="field-label">Shopping</span><input type="number" id="tripShopping" placeholder="0" oninput="updateTripSum()"></div>
+        <div class="field"><span class="field-label">Other</span><input type="number" id="tripOther" placeholder="0" oninput="updateTripSum()"></div>
+        <div class="trip-sum-row"><span>Sum</span><span id="tripSumAmt">฿ 0 / Trip</span></div>
+        <button class="btn-primary" onclick="submitTrip()">บันทึก</button>
+        <div class="modal-cancel" onclick="closeTripModal()">ยกเลิก</div>
+        <div class="modal-delete" id="tripDeleteBtn" style="display:none;" onclick="deleteTripFromModal()">🗑️ ลบทริปนี้</div>
+      </div>
+    </div>
 
     <!-- CHILD -->
     <section class="screen" id="screen-child">
@@ -1187,25 +1240,141 @@ function exportFinancePDF(){
 }
 
 /* ---------- TRAVEL ---------- */
+let tripViewMonth = new Date().getMonth()+1, tripViewYear = new Date().getFullYear();
+let tripShowAll = false, tripEditId = null;
+
 async function loadTrips(){
-  const { data } = await sb.from('trips').select('*').eq('household_id', currentHouseholdId).order('trip_date', {ascending:true});
+  const { data, error } = await sb.from('trips').select('*').eq('household_id', currentHouseholdId).order('start_date', {ascending:true});
+  if(error){ console.error('loadTrips error:', error); }
   trips = data || [];
+  initTripSelects();
   renderTrips();
   renderHomeStats();
 }
+function initTripSelects(){
+  const mSel = document.getElementById('tripMonthSel');
+  const ySel = document.getElementById('tripYearSel');
+  if(!mSel.options.length){
+    const mNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    mSel.innerHTML = mNames.map((n,i)=>`<option value="${i+1}">${n}</option>`).join('');
+    const curY = new Date().getFullYear();
+    const years = []; for(let y=curY-2; y<=curY+1; y++) years.push(y);
+    ySel.innerHTML = years.map(y=>`<option value="${y}">${y}</option>`).join('');
+  }
+  mSel.value = tripViewMonth;
+  ySel.value = tripViewYear;
+}
+function onTripFilterChange(){
+  tripViewMonth = Number(document.getElementById('tripMonthSel').value);
+  tripViewYear = Number(document.getElementById('tripYearSel').value);
+  renderTrips();
+}
+function toggleTripAll(){
+  tripShowAll = !tripShowAll;
+  document.getElementById('tripAllBtn').classList.toggle('active', tripShowAll);
+  document.getElementById('tripMonthSel').disabled = tripShowAll;
+  document.getElementById('tripYearSel').disabled = tripShowAll;
+  renderTrips();
+}
+function tripsForFilter(){
+  if(tripShowAll) return trips;
+  const ym = `${tripViewYear}-${String(tripViewMonth).padStart(2,'0')}`;
+  return trips.filter(t => (t.start_date||'').slice(0,7)===ym);
+}
 function renderTrips(){
-  document.getElementById('tripList').innerHTML = trips.map(t=>`
-    <div class="trip-card">
-      <div class="trip-top"><span class="trip-name">${t.name}</span><span class="trip-amt">฿ ${Number(t.amount).toLocaleString()}</span></div>
-      <div class="trip-date">📍 ${t.trip_date || 'ยังไม่กำหนดวันที่'}</div>
+  const filtered = tripsForFilter();
+  const total = filtered.reduce((a,b)=>a+Number(b.amount||0),0);
+  document.getElementById('tripTotalAmt').textContent = '฿ ' + total.toLocaleString();
+
+  const max = Math.max(1, ...filtered.map(t=>Number(t.amount||0)));
+  document.getElementById('tripChart').innerHTML = filtered.map(t=>{
+    const h = Math.max(3, Math.round((Number(t.amount||0)/max)*110));
+    return `<div class="fin-bar-col">
+      <div class="fin-bar-amt">${t.amount? '฿'+Number(t.amount).toLocaleString() : ''}</div>
+      <div class="fin-bar" style="height:${h}px; background:var(--blue);"></div>
+      <div class="fin-bar-label">${t.name}</div>
+    </div>`;
+  }).join('') || `<div class="empty-note">ยังไม่มีข้อมูล</div>`;
+
+  document.getElementById('tripList').innerHTML = filtered.map(t=>`
+    <div class="trip-card" onclick="openEditTripModal('${t.id}')">
+      <div class="trip-top">
+        <div><span class="trip-name">${t.name}</span>
+          <div class="trip-date">📅 ${formatDateTH(t.start_date)}${t.end_date ? ' - '+formatDateTH(t.end_date) : ''}</div>
+        </div>
+        <div>
+          <span class="trip-view-detail">View Detail →</span>
+          <span class="trip-amt">฿ ${Number(t.amount||0).toLocaleString()}</span>
+        </div>
+      </div>
     </div>`).join('') || `<div class="empty-note">ยังไม่มีทริป</div>`;
 }
-async function addTrip(){
-  const name = prompt('ชื่อทริป:');
-  if(!name) return;
-  const amount = Number(prompt('งบประมาณ (บาท):', '0')) || 0;
-  const trip_date = prompt('วันที่ (YYYY-MM-DD):', '') || null;
-  await sb.from('trips').insert({ household_id: currentHouseholdId, name, amount, trip_date, created_by: currentUser.id });
+function updateTripSum(){
+  const sum = ['tripFood','tripRoom','tripOil','tripShopping','tripOther']
+    .reduce((a,id)=>a + (Number(document.getElementById(id).value)||0), 0);
+  document.getElementById('tripSumAmt').textContent = '฿ ' + sum.toLocaleString() + ' / Trip';
+}
+function openAddTripModal(){
+  tripEditId = null;
+  document.getElementById('tripModalTitle').textContent = 'เพิ่มทริป';
+  document.getElementById('tripWhere').value = '';
+  document.getElementById('tripStart').value = todayStr();
+  document.getElementById('tripEnd').value = todayStr();
+  ['tripFood','tripRoom','tripOil','tripShopping','tripOther'].forEach(id=>document.getElementById(id).value = '');
+  updateTripSum();
+  document.getElementById('tripDeleteBtn').style.display = 'none';
+  document.getElementById('tripModal').classList.add('show');
+}
+function openEditTripModal(id){
+  const t = trips.find(x=>String(x.id)===String(id));
+  if(!t) return;
+  tripEditId = id;
+  document.getElementById('tripModalTitle').textContent = 'แก้ไขทริป';
+  document.getElementById('tripWhere').value = t.name || '';
+  document.getElementById('tripStart').value = t.start_date || '';
+  document.getElementById('tripEnd').value = t.end_date || '';
+  document.getElementById('tripFood').value = t.cost_food || '';
+  document.getElementById('tripRoom').value = t.cost_room || '';
+  document.getElementById('tripOil').value = t.cost_oil || '';
+  document.getElementById('tripShopping').value = t.cost_shopping || '';
+  document.getElementById('tripOther').value = t.cost_other || '';
+  updateTripSum();
+  document.getElementById('tripDeleteBtn').style.display = 'block';
+  document.getElementById('tripModal').classList.add('show');
+}
+function closeTripModal(){
+  tripEditId = null;
+  document.getElementById('tripModal').classList.remove('show');
+}
+async function submitTrip(){
+  const name = document.getElementById('tripWhere').value.trim();
+  const start_date = document.getElementById('tripStart').value || null;
+  const end_date = document.getElementById('tripEnd').value || null;
+  if(!name){ alert('กรุณาระบุสถานที่ (Where)'); return; }
+  const cost_food = Number(document.getElementById('tripFood').value) || 0;
+  const cost_room = Number(document.getElementById('tripRoom').value) || 0;
+  const cost_oil = Number(document.getElementById('tripOil').value) || 0;
+  const cost_shopping = Number(document.getElementById('tripShopping').value) || 0;
+  const cost_other = Number(document.getElementById('tripOther').value) || 0;
+  const amount = cost_food + cost_room + cost_oil + cost_shopping + cost_other;
+  const payload = { name, start_date, end_date, cost_food, cost_room, cost_oil, cost_shopping, cost_other, amount };
+  let error;
+  if(tripEditId){
+    ({ error } = await sb.from('trips').update(payload).eq('id', tripEditId));
+  } else {
+    ({ error } = await sb.from('trips').insert({ household_id: currentHouseholdId, created_by: currentUser.id, ...payload }));
+  }
+  if(error){ alert('บันทึกไม่สำเร็จ: ' + error.message); console.error(error); return; }
+  closeTripModal();
+  await loadTrips();
+}
+async function deleteTripFromModal(){
+  if(!tripEditId) return;
+  if(!confirm('ลบทริปนี้?')) return;
+  const { error } = await sb.from('trips').delete().eq('id', tripEditId);
+  if(error){ alert('ลบไม่สำเร็จ: ' + error.message); console.error(error); return; }
+  closeTripModal();
+  await loadTrips();
 }
 
 /* ---------- CHILD ---------- */
