@@ -163,9 +163,17 @@
   .cal-nav{background:var(--pink-soft); border:none; width:28px; height:28px; border-radius:50%; cursor:pointer; color:var(--maroon); font-weight:800;}
   .grid7{display:grid; grid-template-columns:repeat(7,1fr); gap:6px; text-align:center;}
   .grid7 .dow{font-size:11px; color:var(--muted); font-weight:700; padding-bottom:4px;}
-  .day{aspect-ratio:1; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:12.5px; font-weight:700; background:#F6F1F0; color:var(--muted);}
+  .day{aspect-ratio:1; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:12.5px; font-weight:700; background:#F6F1F0; color:var(--muted); position:relative;}
   .day.empty{background:transparent;}
   .day.today{outline:2px solid var(--maroon); outline-offset:1px;}
+  .day .evt-dot{position:absolute; bottom:4px; left:50%; transform:translateX(-50%); width:5px; height:5px; border-radius:50%; background:var(--maroon);}
+
+  .cal-day-group{margin-bottom:16px;}
+  .cal-day-header{font-size:12.5px; font-weight:800; color:var(--maroon); margin-bottom:8px; padding-left:2px;}
+  .cal-event-row{display:flex; align-items:center; gap:10px; background:#fff; border:1.5px solid var(--line); border-radius:14px; padding:11px 14px; margin-bottom:8px;}
+  .cal-event-row .dot-ic{width:30px; height:30px; border-radius:50%; background:var(--pink-soft); display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0;}
+  .cal-event-row .item-name{flex:1;}
+  .cal-event-tag{font-size:10.5px; font-weight:800; padding:3px 9px; border-radius:999px; flex-shrink:0;}
 
   /* ===== Finance ===== */
   .money-box{border-radius:20px; padding:18px 18px; background:linear-gradient(135deg,var(--maroon),var(--maroon-dark)); color:#fff; margin-bottom:12px;}
@@ -332,14 +340,38 @@
         <button data-t="mood" onclick="setCalTab('mood',this)">🙂 Mood</button>
       </div>
 
-      <div class="mood-q">🙂 How are you feeling today?</div>
-      <div class="mood-row" id="moodPicker"></div>
+      <!-- MONTH VIEW -->
+      <div id="calView-month">
+        <div class="cal-head"><button class="cal-nav" disabled>‹</button><strong id="calMonthLabel">-</strong><button class="cal-nav" disabled>›</button></div>
+        <div class="grid7" id="calGrid"></div>
+      </div>
 
-      <div id="moodLog"></div>
+      <!-- LIST VIEW -->
+      <div id="calView-list" style="display:none;">
+        <button class="add-btn" onclick="openAddEventModal()" style="margin-bottom:16px;">+ Add Event</button>
+        <div id="calListBox"></div>
+      </div>
 
-      <div class="cal-head"><button class="cal-nav" disabled>‹</button><strong id="calMonthLabel">-</strong><button class="cal-nav" disabled>›</button></div>
-      <div class="grid7" id="calGrid"></div>
+      <!-- MOOD VIEW -->
+      <div id="calView-mood" style="display:none;">
+        <div class="mood-q">🙂 How are you feeling today?</div>
+        <div class="mood-row" id="moodPicker"></div>
+        <div id="moodLog"></div>
+        <div class="cal-head"><button class="cal-nav" disabled>‹</button><strong id="calMoodMonthLabel">-</strong><button class="cal-nav" disabled>›</button></div>
+        <div class="grid7" id="calMoodGrid"></div>
+      </div>
     </section>
+
+    <!-- ADD EVENT MODAL -->
+    <div class="modal-overlay" id="addEventModal">
+      <div class="modal-box">
+        <h3>เพิ่มนัดหมาย</h3>
+        <div class="field"><input type="text" id="newEventTitle" placeholder="ชื่อกิจกรรม..."></div>
+        <div class="field"><input type="date" id="newEventDate"></div>
+        <button class="btn-primary" onclick="submitNewEvent()">+ เพิ่มนัดหมาย</button>
+        <div class="modal-cancel" onclick="closeAddEventModal()">ยกเลิก</div>
+      </div>
+    </div>
 
     <!-- FINANCE -->
     <section class="screen" id="screen-finance">
@@ -434,7 +466,7 @@ if (SUPABASE_URL.includes('YOUR-PROJECT') || SUPABASE_ANON_KEY.includes('YOUR-AN
 /* ---------- app state ---------- */
 let currentUser = null, currentProfile = null, partnerProfile = null, currentHouseholdId = null;
 let shoppingData = [], trips = [], children = [], financeItems = [], calendarEvents = [], monthMoods = [];
-let shopFilter = 'All', selectedMood = null;
+let shopFilter = 'All', selectedMood = null, calMode = 'shared', calTab = 'month';
 
 const catColors = {Food:'#F4A25E', Home:'#B79CE0', Health:'#8FD1EC', Child:'#F5A6B6'};
 const moods = [
@@ -604,18 +636,19 @@ function renderHomeStats(){
   const spend = financeItems.filter(f=>f.type==='spending').reduce((a,b)=>a+Number(b.amount),0);
   const income = financeItems.filter(f=>f.type==='income').reduce((a,b)=>a+Number(b.amount),0);
   const pct = income ? Math.round((spend/income)*100) : 0;
+  const homeVisibleEvents = calendarEvents.filter(e => (e.visibility||'shared')==='shared' || e.created_by===currentUser.id);
   document.getElementById('homeStats').innerHTML = `
     <div class="stat-card"><div class="em">🛒</div><div class="stat-num">${undone}</div><div class="stat-label">Shopping</div></div>
-    <div class="stat-card"><div class="em">📅</div><div class="stat-num">${calendarEvents.length}</div><div class="stat-label">Events</div></div>
+    <div class="stat-card"><div class="em">📅</div><div class="stat-num">${homeVisibleEvents.length}</div><div class="stat-label">Events</div></div>
     <div class="stat-card"><div class="em">✈️</div><div class="stat-num">${trips.length}</div><div class="stat-label">Travel Trip</div></div>
     <div class="stat-card"><div class="em">👶</div><div class="stat-num">${children.length}</div><div class="stat-label">Child</div></div>
     <div class="stat-card"><div class="em">🐷</div><div class="stat-num">${pct}%</div><div class="stat-label">Budget</div></div>`;
   const todayBox = document.getElementById('homeToday');
-  const upcoming = calendarEvents.filter(e=>e.event_date >= todayStr()).slice(0,1);
+  const upcoming = homeVisibleEvents.filter(e=>e.event_date >= todayStr()).slice(0,1);
   todayBox.innerHTML = upcoming.length ? upcoming.map(e=>`
     <div class="list-item"><div class="dot-ic">📌</div><div class="item-name">${e.title}</div></div>`).join('')
     : `<div class="empty-note">ยังไม่มีนัดหมายวันนี้</div>`;
-  document.getElementById('homeEvents').innerHTML = calendarEvents.slice(0,3).map(e=>`
+  document.getElementById('homeEvents').innerHTML = homeVisibleEvents.slice(0,3).map(e=>`
     <div class="list-item"><div class="date-chip">${e.event_date.slice(8,10)}</div><div class="item-name">${e.title}</div></div>`).join('')
     || `<div class="empty-note">ยังไม่มีกิจกรรมล่วงหน้า</div>`;
   renderHomeShoppingPreview();
@@ -626,6 +659,7 @@ function renderHomeShoppingPreview(){
     <div class="list-item">
       <div class="chk ${i.done?'done':''}">${i.done?'✓':''}</div>
       <div class="item-name ${i.done?'done':''}">${i.name}</div>
+      <div class="tag" style="color:${catColors[i.category]}; background:${catColors[i.category]}22;">${i.category}</div>
     </div>`).join('') || `<div class="empty-note">ยังไม่มีของในลิสต์</div>`;
 }
 
@@ -692,8 +726,17 @@ async function loadCalendar(){
   selectedMood = mine ? mine.mood : null;
   const { data: events } = await sb.from('calendar_events').select('*').eq('household_id', currentHouseholdId).order('event_date', {ascending:true});
   calendarEvents = events || [];
-  renderMoodPicker(); renderMoodLog(); renderCalGrid();
+  renderMoodPicker(); renderMoodLog(); renderCalGrid(); renderMoodGrid(); renderCalList();
   renderHomeStats();
+}
+// ---- filters based on Shared / Personal toggle ----
+function visibleEvents(){
+  return calMode==='shared'
+    ? calendarEvents.filter(e => (e.visibility||'shared')==='shared')
+    : calendarEvents.filter(e => e.created_by===currentUser.id && e.visibility==='personal');
+}
+function visibleMoods(){
+  return calMode==='shared' ? monthMoods : monthMoods.filter(m=>m.user_id===currentUser.id);
 }
 function renderMoodPicker(){
   document.getElementById('moodPicker').innerHTML = moods.map(m=>`
@@ -710,7 +753,7 @@ async function pickMood(key){
 }
 function renderMoodLog(){
   const today = todayStr();
-  const entries = monthMoods.filter(m=>m.log_date===today);
+  const entries = visibleMoods().filter(m=>m.log_date===today);
   document.getElementById('moodLog').innerHTML = entries.map(e=>{
     const mood = moods.find(m=>m.key===e.mood) || moods[4];
     const who = e.user_id===currentUser.id ? (currentProfile?.nickname||'คุณ') : (partnerProfile?.nickname||'คู่ของคุณ');
@@ -718,29 +761,102 @@ function renderMoodLog(){
       <div class="mt"><div><strong>${who}</strong> feeling ${mood.label.toLowerCase()}</div><div>${e.log_date}</div></div></div>`;
   }).join('') || `<div class="empty-note">วันนี้ยังไม่มีใครบันทึกอารมณ์</div>`;
 }
-function renderCalGrid(){
-  const now = new Date();
+function buildMonthShell(now){
   const y = now.getFullYear(), mo = now.getMonth();
-  document.getElementById('calMonthLabel').textContent = now.toLocaleDateString('en-US',{month:'short', year:'numeric'});
   const firstDow = new Date(y, mo, 1).getDay();
   const daysInMonth = new Date(y, mo+1, 0).getDate();
-  const dayColor = {};
-  monthMoods.forEach(m=>{ const d = Number(m.log_date.slice(8,10)); const mood = moods.find(x=>x.key===m.mood); if(mood) dayColor[d] = mood.color; });
   let html = ['S','M','T','W','T','F','S'].map(d=>`<div class="dow">${d}</div>`).join('');
   for(let i=0;i<firstDow;i++) html += `<div class="day empty"></div>`;
+  return {html, daysInMonth, y, mo};
+}
+function renderCalGrid(){
+  // MONTH TAB: plain grid + a dot under days that have a visible event
+  const now = new Date();
+  document.getElementById('calMonthLabel').textContent = now.toLocaleDateString('en-US',{month:'short', year:'numeric'});
+  const {html, daysInMonth} = buildMonthShell(now);
+  let out = html;
+  const eventDays = new Set(visibleEvents().map(e=>Number(e.event_date.slice(8,10))));
   for(let d=1; d<=daysInMonth; d++){
-    const bg = dayColor[d] ? dayColor[d]+'55' : '';
-    html += `<div class="day ${d===now.getDate()?'today':''}" style="${bg?`background:${bg};`:''}">${d}</div>`;
+    out += `<div class="day ${d===now.getDate()?'today':''}">${d}${eventDays.has(d)?'<div class="evt-dot"></div>':''}</div>`;
   }
-  document.getElementById('calGrid').innerHTML = html;
+  document.getElementById('calGrid').innerHTML = out;
+}
+function renderMoodGrid(){
+  // MOOD TAB: colored background per day. Shared mode = split stripes per person, Personal = single color
+  const now = new Date();
+  document.getElementById('calMoodMonthLabel').textContent = now.toLocaleDateString('en-US',{month:'short', year:'numeric'});
+  const {html, daysInMonth} = buildMonthShell(now);
+  let out = html;
+  const byDay = {};
+  visibleMoods().forEach(m=>{
+    const d = Number(m.log_date.slice(8,10));
+    const mood = moods.find(x=>x.key===m.mood);
+    if(!mood) return;
+    (byDay[d] = byDay[d]||[]).push({uid:m.user_id, color:mood.color});
+  });
+  for(let d=1; d<=daysInMonth; d++){
+    let bg = '';
+    const entries = byDay[d];
+    if(entries && entries.length){
+      if(calMode==='shared' && entries.length>1){
+        const seg = 100/entries.length;
+        const stops = entries.map((e,i)=>`${e.color}88 ${i*seg}%, ${e.color}88 ${(i+1)*seg}%`).join(', ');
+        bg = `background:linear-gradient(to right, ${stops});`;
+      } else {
+        bg = `background:${entries[0].color}55;`;
+      }
+    }
+    out += `<div class="day ${d===now.getDate()?'today':''}" style="${bg}">${d}</div>`;
+  }
+  document.getElementById('calMoodGrid').innerHTML = out;
+}
+function renderCalList(){
+  const events = visibleEvents().slice().sort((a,b)=>a.event_date.localeCompare(b.event_date));
+  const byDate = {};
+  events.forEach(e=>{ (byDate[e.event_date] = byDate[e.event_date]||[]).push(e); });
+  const dates = Object.keys(byDate).sort();
+  document.getElementById('calListBox').innerHTML = dates.length ? dates.map(dt=>`
+    <div class="cal-day-group">
+      <div class="cal-day-header">${dt}</div>
+      ${byDate[dt].map(e=>`
+        <div class="cal-event-row">
+          <div class="dot-ic">📌</div>
+          <div class="item-name">${e.title}</div>
+          <div class="cal-event-tag" style="color:${e.visibility==='personal'?'#2A7A93':'var(--maroon)'}; background:${e.visibility==='personal'?'#EAF7FC':'var(--pink-soft)'};">${e.visibility==='personal'?'Personal':'Shared'}</div>
+        </div>`).join('')}
+    </div>`).join('') : `<div class="empty-note">ยังไม่มีนัดหมาย</div>`;
+}
+function openAddEventModal(){
+  document.getElementById('newEventTitle').value = '';
+  document.getElementById('newEventDate').value = todayStr();
+  document.getElementById('addEventModal').classList.add('show');
+}
+function closeAddEventModal(){
+  document.getElementById('addEventModal').classList.remove('show');
+}
+async function submitNewEvent(){
+  const title = document.getElementById('newEventTitle').value.trim();
+  const event_date = document.getElementById('newEventDate').value;
+  if(!title || !event_date) return;
+  await sb.from('calendar_events').insert({
+    household_id: currentHouseholdId, title, event_date,
+    created_by: currentUser.id, visibility: calMode
+  });
+  closeAddEventModal();
 }
 function setCalMode(mode){
+  calMode = mode;
   document.getElementById('pillShared').className = 'pill' + (mode==='shared' ? ' on-shared' : '');
   document.getElementById('pillPersonal').className = 'pill' + (mode==='personal' ? ' on-personal' : '');
+  renderCalGrid(); renderMoodGrid(); renderCalList(); renderMoodLog();
 }
 function setCalTab(t, btn){
   document.querySelectorAll('.tab-row button').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
+  calTab = t;
+  document.getElementById('calView-month').style.display = t==='month' ? '' : 'none';
+  document.getElementById('calView-list').style.display = t==='list' ? '' : 'none';
+  document.getElementById('calView-mood').style.display = t==='mood' ? '' : 'none';
 }
 
 /* ---------- FINANCE ---------- */
