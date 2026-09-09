@@ -197,7 +197,10 @@
   .fin-col{flex:1;}
   .fin-col h3{font-size:13.5px; margin:0; color:var(--maroon);}
   .fin-item{margin-bottom:14px;}
-  .fin-item .row1{display:flex; justify-content:space-between; font-size:12.5px; font-weight:700; margin-bottom:6px; gap:6px;}
+  .fin-item .row1{display:flex; justify-content:space-between; align-items:center; font-size:12.5px; font-weight:700; margin-bottom:6px; gap:6px;}
+  .fin-item .actions{display:flex; align-items:center; gap:5px;}
+  .fin-icon-btn{background:none; border:none; cursor:pointer; font-size:12px; padding:2px; opacity:.6; line-height:1;}
+  .fin-icon-btn:hover{opacity:1;}
   .bar-bg{height:8px; background:var(--pink-soft); border-radius:99px; overflow:hidden;}
   .bar-fill{height:100%; border-radius:99px; background:var(--maroon);}
   .add-link{font-size:11.5px; font-weight:800; color:var(--maroon); cursor:pointer;}
@@ -509,11 +512,12 @@ let currentUser = null, currentProfile = null, partnerProfile = null, currentHou
 let shoppingData = [], trips = [], children = [], financeItems = [], calendarEvents = [], monthMoods = [];
 let shopFilter = 'All', selectedMood = null, calMode = 'shared', calTab = 'month', calMonthOffset = 0;
 let finViewYear = new Date().getFullYear(), finViewMonth = new Date().getMonth()+1;
-let finAddType = 'income', finAddCategory = 'เงินเดือน';
+let finAddType = 'income', finAddCategory = 'เงินเดือน', finEditId = null;
 
 const catColors = {Food:'#F4A25E', Home:'#B79CE0', Health:'#8FD1EC', Child:'#F5A6B6'};
 const incomeCatColors = {'เงินเดือน':'#3F9C8C', 'อื่นๆ':'#6FC7B8'};
-const finCatIcons = {'เงินเดือน':'💰', 'อื่นๆ':'💵', Food:'🍔', Home:'🏠', Health:'💊', Child:'🍼'};
+const expenseCatColors = {Food:'#F4A25E', Home:'#B79CE0', Health:'#8FD1EC', Child:'#F5A6B6', Travel:'#5FA8D3'};
+const finCatIcons = {'เงินเดือน':'💰', 'อื่นๆ':'💵', Food:'🍔', Home:'🏠', Health:'💊', Child:'🍼', Travel:'✈️'};
 const moods = [
   {key:'happy', ic:'😊', label:'Happy', color:'#F9C8D4'},
   {key:'calm', ic:'😌', label:'Calm', color:'#B79CE0'},
@@ -973,13 +977,21 @@ function renderFinance(){
 
   document.getElementById('finIncomeList').innerHTML = income.map(i=>{
     const pct = incomeTotal ? Math.round((i.amount/incomeTotal)*100) : 0;
-    return `<div class="fin-item"><div class="row1"><span>${finCatIcons[i.category]||'💰'} ${i.category}</span><span>฿${Number(i.amount).toLocaleString()}</span></div>
+    return `<div class="fin-item"><div class="row1"><span>${finCatIcons[i.category]||'💰'} ${i.category}</span>
+      <span class="actions">฿${Number(i.amount).toLocaleString()}
+        <button class="fin-icon-btn" onclick="openEditFinanceModal('${i.id}')">✏️</button>
+        <button class="fin-icon-btn" onclick="deleteFinanceItem('${i.id}')">🗑️</button>
+      </span></div>
       <div class="bar-bg"><div class="bar-fill" style="width:${pct}%; background:${incomeCatColors[i.category]||'var(--teal)'};"></div></div></div>`;
   }).join('') || `<div class="empty-note">ยังไม่มีรายรับ</div>`;
   document.getElementById('finSpendList').innerHTML = spend.map(s=>{
     const pct = spendTotal ? Math.round((s.amount/spendTotal)*100) : 0;
-    return `<div class="fin-item"><div class="row1"><span>${finCatIcons[s.category]||'🧾'} ${s.category}</span><span>฿${Number(s.amount).toLocaleString()}</span></div>
-      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%; background:${catColors[s.category]||'var(--maroon)'};"></div></div></div>`;
+    return `<div class="fin-item"><div class="row1"><span>${finCatIcons[s.category]||'🧾'} ${s.category}</span>
+      <span class="actions">฿${Number(s.amount).toLocaleString()}
+        <button class="fin-icon-btn" onclick="openEditFinanceModal('${s.id}')">✏️</button>
+        <button class="fin-icon-btn" onclick="deleteFinanceItem('${s.id}')">🗑️</button>
+      </span></div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%; background:${expenseCatColors[s.category]||'var(--maroon)'};"></div></div></div>`;
   }).join('') || `<div class="empty-note">ยังไม่มีรายจ่าย</div>`;
 
   renderFinChart(income, spend);
@@ -987,7 +999,7 @@ function renderFinance(){
 function renderFinChart(income, spend){
   const cats = [
     ...Object.keys(incomeCatColors).map(c=>({cat:c, color:incomeCatColors[c], amt: income.filter(i=>i.category===c).reduce((a,b)=>a+Number(b.amount),0)})),
-    ...Object.keys(catColors).map(c=>({cat:c, color:catColors[c], amt: spend.filter(i=>i.category===c).reduce((a,b)=>a+Number(b.amount),0)})),
+    ...Object.keys(expenseCatColors).map(c=>({cat:c, color:expenseCatColors[c], amt: spend.filter(i=>i.category===c).reduce((a,b)=>a+Number(b.amount),0)})),
   ];
   const max = Math.max(1, ...cats.map(c=>c.amt));
   document.getElementById('finChart').innerHTML = cats.map(c=>{
@@ -1000,6 +1012,7 @@ function renderFinChart(income, spend){
   }).join('');
 }
 function openAddFinanceModal(type){
+  finEditId = null;
   finAddType = type;
   finAddCategory = type==='income' ? 'เงินเดือน' : 'Food';
   document.getElementById('finModalTitle').textContent = type==='income' ? 'เพิ่มรายรับ' : 'เพิ่มรายจ่าย';
@@ -1007,11 +1020,27 @@ function openAddFinanceModal(type){
   renderFinCatChips();
   document.getElementById('addFinanceModal').classList.add('show');
 }
+function openEditFinanceModal(id){
+  const item = financeItems.find(f=>String(f.id)===String(id));
+  if(!item) return;
+  finEditId = id;
+  finAddType = item.type;
+  finAddCategory = item.category;
+  document.getElementById('finModalTitle').textContent = item.type==='income' ? 'แก้ไขรายรับ' : 'แก้ไขรายจ่าย';
+  document.getElementById('finAmountInput').value = item.amount;
+  renderFinCatChips();
+  document.getElementById('addFinanceModal').classList.add('show');
+}
 function closeAddFinanceModal(){
+  finEditId = null;
   document.getElementById('addFinanceModal').classList.remove('show');
 }
+async function deleteFinanceItem(id){
+  if(!confirm('ลบรายการนี้?')) return;
+  await sb.from('finance_items').delete().eq('id', id);
+}
 function renderFinCatChips(){
-  const map = finAddType==='income' ? incomeCatColors : catColors;
+  const map = finAddType==='income' ? incomeCatColors : expenseCatColors;
   document.getElementById('finCatRow').innerHTML = Object.keys(map).map(c=>{
     const active = finAddCategory===c;
     return `<div class="chip ${active?'active':''}" style="${active?`background:${map[c]}; border-color:${map[c]};`:''}" onclick="pickFinCat('${c}')">${finCatIcons[c]||''} ${c}</div>`;
@@ -1021,10 +1050,15 @@ function pickFinCat(c){ finAddCategory = c; renderFinCatChips(); }
 async function submitFinanceItem(){
   const amount = Number(document.getElementById('finAmountInput').value) || 0;
   if(!amount) return;
-  await sb.from('finance_items').insert({
-    household_id: currentHouseholdId, type: finAddType, category: finAddCategory, amount,
-    entry_date: todayStr(), created_by: currentUser.id
-  });
+  if(finEditId){
+    await sb.from('finance_items').update({ category: finAddCategory, amount }).eq('id', finEditId);
+    finEditId = null;
+  } else {
+    await sb.from('finance_items').insert({
+      household_id: currentHouseholdId, type: finAddType, category: finAddCategory, amount,
+      entry_date: todayStr(), created_by: currentUser.id
+    });
+  }
   closeAddFinanceModal();
 }
 function exportFinancePDF(){
