@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root{
     --maroon:#7A1B2B;
@@ -180,6 +181,18 @@
   .money-box .lbl{font-size:12.5px; opacity:.85; font-weight:700;}
   .money-box .amt{font-family:'Baloo 2'; font-size:26px; font-weight:800; margin-top:4px;}
   .money-box.income{background:linear-gradient(135deg,#6FC7B8,#3F9C8C);}
+  .fin-nav{display:flex; gap:10px; margin-bottom:14px;}
+  .fin-nav select{flex:1; border:1.5px solid var(--line); border-radius:14px; padding:9px 10px; font-family:'Nunito'; font-size:13px; font-weight:700; color:var(--text); background:#fff;}
+  .fin-today-row{display:flex; gap:10px; margin-bottom:18px;}
+  .fin-today-card{flex:1; border:1.5px solid var(--line); border-radius:16px; padding:12px 14px; background:#fff;}
+  .fin-today-card .lbl{font-size:11px; color:var(--muted); font-weight:700;}
+  .fin-today-card .v{font-family:'Baloo 2'; font-size:17px; font-weight:800; color:var(--maroon); margin-top:2px;}
+  .fin-today-card.income .v{color:#3F9C8C;}
+  .fin-chart{display:flex; align-items:flex-end; gap:10px; height:150px; padding:10px 4px 0; margin-bottom:20px; border-bottom:1.5px solid var(--line);}
+  .fin-bar-col{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;}
+  .fin-bar-amt{font-size:9.5px; font-weight:800; color:var(--text); margin-bottom:4px; white-space:nowrap;}
+  .fin-bar{width:65%; border-radius:8px 8px 0 0; min-height:3px;}
+  .fin-bar-label{font-size:9.5px; font-weight:700; color:var(--muted); margin-top:6px; text-align:center;}
   .fin-cols{display:flex; gap:14px; margin-top:16px;}
   .fin-col{flex:1;}
   .fin-col h3{font-size:13.5px; margin:0; color:var(--maroon);}
@@ -342,7 +355,7 @@
 
       <!-- MONTH VIEW -->
       <div id="calView-month">
-        <div class="cal-head"><button class="cal-nav" disabled>‹</button><strong id="calMonthLabel">-</strong><button class="cal-nav" disabled>›</button></div>
+        <div class="cal-head"><button class="cal-nav" onclick="navMonth(-1)">‹</button><strong id="calMonthLabel">-</strong><button class="cal-nav" onclick="navMonth(1)">›</button></div>
         <div class="grid7" id="calGrid"></div>
       </div>
 
@@ -357,7 +370,7 @@
         <div class="mood-q">🙂 How are you feeling today?</div>
         <div class="mood-row" id="moodPicker"></div>
         <div id="moodLog"></div>
-        <div class="cal-head"><button class="cal-nav" disabled>‹</button><strong id="calMoodMonthLabel">-</strong><button class="cal-nav" disabled>›</button></div>
+        <div class="cal-head"><button class="cal-nav" onclick="navMonth(-1)">‹</button><strong id="calMoodMonthLabel">-</strong><button class="cal-nav" onclick="navMonth(1)">›</button></div>
         <div class="grid7" id="calMoodGrid"></div>
       </div>
     </section>
@@ -376,20 +389,48 @@
     <!-- FINANCE -->
     <section class="screen" id="screen-finance">
       <div class="topbar"><h1>💳 Finance</h1><button class="icon-btn" onclick="goScreen('home')">🏠</button></div>
+
+      <div class="fin-nav">
+        <select id="finMonthSel" onchange="onFinDateChange()"></select>
+        <select id="finYearSel" onchange="onFinDateChange()"></select>
+      </div>
+
       <div class="money-box"><div class="lbl">This month's spending</div><div class="amt" id="finSpendTotal">฿ 0</div></div>
       <div class="money-box income"><div class="lbl">This month's income</div><div class="amt" id="finIncomeTotal">฿ 0</div></div>
 
+      <div class="fin-today-row">
+        <div class="fin-today-card"><div class="lbl">Today's spending</div><div class="v" id="finTodaySpend">฿ 0</div></div>
+        <div class="fin-today-card income"><div class="lbl">Today's income</div><div class="v" id="finTodayIncome">฿ 0</div></div>
+      </div>
+
+      <div class="section-title"><h2>Summary by Category</h2></div>
+      <div class="fin-chart" id="finChart"></div>
+
+      <button class="add-btn" onclick="exportFinancePDF()" style="margin-bottom:18px;">⬇ Export PDF Summary</button>
+
       <div class="fin-cols">
         <div class="fin-col">
-          <div class="add-link-row"><h3>Income</h3><span class="add-link" onclick="addFinanceItem('income')">+ Add</span></div>
+          <div class="add-link-row"><h3>Income</h3><span class="add-link" onclick="openAddFinanceModal('income')">+ Add</span></div>
           <div id="finIncomeList"></div>
         </div>
         <div class="fin-col">
-          <div class="add-link-row"><h3>Spending</h3><span class="add-link" onclick="addFinanceItem('spending')">+ Add</span></div>
+          <div class="add-link-row"><h3>Spending</h3><span class="add-link" onclick="openAddFinanceModal('spending')">+ Add</span></div>
           <div id="finSpendList"></div>
         </div>
       </div>
     </section>
+
+    <!-- ADD FINANCE MODAL -->
+    <div class="modal-overlay" id="addFinanceModal">
+      <div class="modal-box">
+        <h3 id="finModalTitle">เพิ่มรายการ</h3>
+        <div class="field"><input type="number" id="finAmountInput" placeholder="จำนวนเงิน (บาท)"></div>
+        <div class="modal-label">หมวดหมู่</div>
+        <div class="chip-row" id="finCatRow"></div>
+        <button class="btn-primary" onclick="submitFinanceItem()">+ เพิ่มรายการ</button>
+        <div class="modal-cancel" onclick="closeAddFinanceModal()">ยกเลิก</div>
+      </div>
+    </div>
 
     <!-- TRAVEL -->
     <section class="screen" id="screen-travel">
@@ -466,9 +507,13 @@ if (SUPABASE_URL.includes('YOUR-PROJECT') || SUPABASE_ANON_KEY.includes('YOUR-AN
 /* ---------- app state ---------- */
 let currentUser = null, currentProfile = null, partnerProfile = null, currentHouseholdId = null;
 let shoppingData = [], trips = [], children = [], financeItems = [], calendarEvents = [], monthMoods = [];
-let shopFilter = 'All', selectedMood = null, calMode = 'shared', calTab = 'month';
+let shopFilter = 'All', selectedMood = null, calMode = 'shared', calTab = 'month', calMonthOffset = 0;
+let finViewYear = new Date().getFullYear(), finViewMonth = new Date().getMonth()+1;
+let finAddType = 'income', finAddCategory = 'เงินเดือน';
 
 const catColors = {Food:'#F4A25E', Home:'#B79CE0', Health:'#8FD1EC', Child:'#F5A6B6'};
+const incomeCatColors = {'เงินเดือน':'#3F9C8C', 'อื่นๆ':'#6FC7B8'};
+const finCatIcons = {'เงินเดือน':'💰', 'อื่นๆ':'💵', Food:'🍔', Home:'🏠', Health:'💊', Child:'🍼'};
 const moods = [
   {key:'happy', ic:'😊', label:'Happy', color:'#F9C8D4'},
   {key:'calm', ic:'😌', label:'Calm', color:'#B79CE0'},
@@ -633,8 +678,9 @@ function subscribeRealtime(){
 /* ---------- HOME ---------- */
 function renderHomeStats(){
   const undone = shoppingData.filter(i=>!i.done).length;
-  const spend = financeItems.filter(f=>f.type==='spending').reduce((a,b)=>a+Number(b.amount),0);
-  const income = financeItems.filter(f=>f.type==='income').reduce((a,b)=>a+Number(b.amount),0);
+  const curYM = todayStr().slice(0,7);
+  const spend = financeItems.filter(f=>f.type==='spending' && (f.entry_date||'').slice(0,7)===curYM).reduce((a,b)=>a+Number(b.amount),0);
+  const income = financeItems.filter(f=>f.type==='income' && (f.entry_date||'').slice(0,7)===curYM).reduce((a,b)=>a+Number(b.amount),0);
   const pct = income ? Math.round((spend/income)*100) : 0;
   const homeVisibleEvents = calendarEvents.filter(e => (e.visibility||'shared')==='shared' || e.created_by===currentUser.id);
   document.getElementById('homeStats').innerHTML = `
@@ -719,8 +765,7 @@ async function submitNewItem(){
 
 /* ---------- CALENDAR ---------- */
 async function loadCalendar(){
-  const from = monthStr()+'-01';
-  const { data } = await sb.from('calendar_moods').select('*').eq('household_id', currentHouseholdId).gte('log_date', from);
+  const { data } = await sb.from('calendar_moods').select('*').eq('household_id', currentHouseholdId);
   monthMoods = data || [];
   const mine = monthMoods.find(m=>m.user_id===currentUser.id && m.log_date===todayStr());
   selectedMood = mine ? mine.mood : null;
@@ -739,10 +784,13 @@ function visibleMoods(){
   return calMode==='shared' ? monthMoods : monthMoods.filter(m=>m.user_id===currentUser.id);
 }
 function renderMoodPicker(){
-  document.getElementById('moodPicker').innerHTML = moods.map(m=>`
-    <div class="mood-opt ${selectedMood===m.key?'sel':''}" onclick="pickMood('${m.key}')">
-      <div class="mood-face" style="background:${m.color}33;">${m.ic}</div><span>${m.label}</span>
-    </div>`).join('');
+  document.getElementById('moodPicker').innerHTML = moods.map(m=>{
+    const sel = selectedMood===m.key;
+    return `
+    <div class="mood-opt ${sel?'sel':''}" onclick="pickMood('${m.key}')">
+      <div class="mood-face" style="background:${m.color}${sel?'E6':'59'};">${m.ic}</div><span>${m.label}</span>
+    </div>`;
+  }).join('');
 }
 async function pickMood(key){
   selectedMood = key;
@@ -757,12 +805,20 @@ function renderMoodLog(){
   document.getElementById('moodLog').innerHTML = entries.map(e=>{
     const mood = moods.find(m=>m.key===e.mood) || moods[4];
     const who = e.user_id===currentUser.id ? (currentProfile?.nickname||'คุณ') : (partnerProfile?.nickname||'คู่ของคุณ');
-    return `<div class="mood-log"><div class="mf" style="background:${mood.color}55;">${mood.ic}</div>
+    return `<div class="mood-log"><div class="mf" style="background:${mood.color}99;">${mood.ic}</div>
       <div class="mt"><div><strong>${who}</strong> feeling ${mood.label.toLowerCase()}</div><div>${e.log_date}</div></div></div>`;
   }).join('') || `<div class="empty-note">วันนี้ยังไม่มีใครบันทึกอารมณ์</div>`;
 }
-function buildMonthShell(now){
-  const y = now.getFullYear(), mo = now.getMonth();
+function viewedDate(){
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth()+calMonthOffset, 1);
+}
+function navMonth(delta){
+  calMonthOffset += delta;
+  renderCalGrid(); renderMoodGrid();
+}
+function buildMonthShell(vd){
+  const y = vd.getFullYear(), mo = vd.getMonth();
   const firstDow = new Date(y, mo, 1).getDay();
   const daysInMonth = new Date(y, mo+1, 0).getDate();
   let html = ['S','M','T','W','T','F','S'].map(d=>`<div class="dow">${d}</div>`).join('');
@@ -772,41 +828,51 @@ function buildMonthShell(now){
 function renderCalGrid(){
   // MONTH TAB: plain grid + a dot under days that have a visible event
   const now = new Date();
-  document.getElementById('calMonthLabel').textContent = now.toLocaleDateString('en-US',{month:'short', year:'numeric'});
-  const {html, daysInMonth} = buildMonthShell(now);
+  const vd = viewedDate();
+  const isCurMonth = vd.getFullYear()===now.getFullYear() && vd.getMonth()===now.getMonth();
+  document.getElementById('calMonthLabel').textContent = vd.toLocaleDateString('en-US',{month:'short', year:'numeric'});
+  const {html, daysInMonth, y, mo} = buildMonthShell(vd);
   let out = html;
-  const eventDays = new Set(visibleEvents().map(e=>Number(e.event_date.slice(8,10))));
+  const eventDays = new Set(
+    visibleEvents()
+      .filter(e => e.event_date.slice(0,4)===String(y) && Number(e.event_date.slice(5,7))===mo+1)
+      .map(e=>Number(e.event_date.slice(8,10)))
+  );
   for(let d=1; d<=daysInMonth; d++){
-    out += `<div class="day ${d===now.getDate()?'today':''}">${d}${eventDays.has(d)?'<div class="evt-dot"></div>':''}</div>`;
+    out += `<div class="day ${isCurMonth && d===now.getDate()?'today':''}">${d}${eventDays.has(d)?'<div class="evt-dot"></div>':''}</div>`;
   }
   document.getElementById('calGrid').innerHTML = out;
 }
 function renderMoodGrid(){
   // MOOD TAB: colored background per day. Shared mode = split stripes per person, Personal = single color
   const now = new Date();
-  document.getElementById('calMoodMonthLabel').textContent = now.toLocaleDateString('en-US',{month:'short', year:'numeric'});
-  const {html, daysInMonth} = buildMonthShell(now);
+  const vd = viewedDate();
+  const isCurMonth = vd.getFullYear()===now.getFullYear() && vd.getMonth()===now.getMonth();
+  document.getElementById('calMoodMonthLabel').textContent = vd.toLocaleDateString('en-US',{month:'short', year:'numeric'});
+  const {html, daysInMonth, y, mo} = buildMonthShell(vd);
   let out = html;
   const byDay = {};
-  visibleMoods().forEach(m=>{
-    const d = Number(m.log_date.slice(8,10));
-    const mood = moods.find(x=>x.key===m.mood);
-    if(!mood) return;
-    (byDay[d] = byDay[d]||[]).push({uid:m.user_id, color:mood.color});
-  });
+  visibleMoods()
+    .filter(m => m.log_date.slice(0,4)===String(y) && Number(m.log_date.slice(5,7))===mo+1)
+    .forEach(m=>{
+      const d = Number(m.log_date.slice(8,10));
+      const mood = moods.find(x=>x.key===m.mood);
+      if(!mood) return;
+      (byDay[d] = byDay[d]||[]).push({uid:m.user_id, color:mood.color});
+    });
   for(let d=1; d<=daysInMonth; d++){
     let bg = '';
     const entries = byDay[d];
     if(entries && entries.length){
       if(calMode==='shared' && entries.length>1){
         const seg = 100/entries.length;
-        const stops = entries.map((e,i)=>`${e.color}88 ${i*seg}%, ${e.color}88 ${(i+1)*seg}%`).join(', ');
+        const stops = entries.map((e,i)=>`${e.color}CC ${i*seg}%, ${e.color}CC ${(i+1)*seg}%`).join(', ');
         bg = `background:linear-gradient(to right, ${stops});`;
       } else {
-        bg = `background:${entries[0].color}55;`;
+        bg = `background:${entries[0].color}99;`;
       }
     }
-    out += `<div class="day ${d===now.getDate()?'today':''}" style="${bg}">${d}</div>`;
+    out += `<div class="day ${isCurMonth && d===now.getDate()?'today':''}" style="${bg}">${d}</div>`;
   }
   document.getElementById('calMoodGrid').innerHTML = out;
 }
@@ -861,41 +927,136 @@ function setCalTab(t, btn){
 
 /* ---------- FINANCE ---------- */
 async function loadFinance(){
-  const { data } = await sb.from('finance_items').select('*').eq('household_id', currentHouseholdId).eq('month', monthStr());
+  const { data } = await sb.from('finance_items').select('*').eq('household_id', currentHouseholdId);
   financeItems = data || [];
+  initFinSelects();
   renderFinance();
   renderHomeStats();
 }
+function initFinSelects(){
+  const mSel = document.getElementById('finMonthSel');
+  const ySel = document.getElementById('finYearSel');
+  if(!mSel.options.length){
+    const mNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    mSel.innerHTML = mNames.map((n,i)=>`<option value="${i+1}">${n}</option>`).join('');
+    const curY = new Date().getFullYear();
+    const years = []; for(let y=curY-2; y<=curY+1; y++) years.push(y);
+    ySel.innerHTML = years.map(y=>`<option value="${y}">${y}</option>`).join('');
+  }
+  mSel.value = finViewMonth;
+  ySel.value = finViewYear;
+}
+function onFinDateChange(){
+  finViewMonth = Number(document.getElementById('finMonthSel').value);
+  finViewYear = Number(document.getElementById('finYearSel').value);
+  renderFinance();
+}
+function itemsForViewMonth(){
+  const ym = `${finViewYear}-${String(finViewMonth).padStart(2,'0')}`;
+  return financeItems.filter(f => (f.entry_date||'').slice(0,7)===ym);
+}
 function renderFinance(){
-  const income = financeItems.filter(f=>f.type==='income');
-  const spend = financeItems.filter(f=>f.type==='spending');
+  const monthItems = itemsForViewMonth();
+  const income = monthItems.filter(f=>f.type==='income');
+  const spend = monthItems.filter(f=>f.type==='spending');
   const incomeTotal = income.reduce((a,b)=>a+Number(b.amount),0);
   const spendTotal = spend.reduce((a,b)=>a+Number(b.amount),0);
   document.getElementById('finIncomeTotal').textContent = '฿ ' + incomeTotal.toLocaleString();
   document.getElementById('finSpendTotal').textContent = '฿ ' + spendTotal.toLocaleString();
+
+  const today = todayStr();
+  const todayItems = financeItems.filter(f=>f.entry_date===today);
+  const todaySpend = todayItems.filter(f=>f.type==='spending').reduce((a,b)=>a+Number(b.amount),0);
+  const todayIncome = todayItems.filter(f=>f.type==='income').reduce((a,b)=>a+Number(b.amount),0);
+  document.getElementById('finTodaySpend').textContent = '฿ ' + todaySpend.toLocaleString();
+  document.getElementById('finTodayIncome').textContent = '฿ ' + todayIncome.toLocaleString();
+
   document.getElementById('finIncomeList').innerHTML = income.map(i=>{
     const pct = incomeTotal ? Math.round((i.amount/incomeTotal)*100) : 0;
-    return `<div class="fin-item"><div class="row1"><span>${i.icon} ${i.name}</span><span>฿${Number(i.amount).toLocaleString()}</span></div>
-      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%; background:var(--teal);"></div></div></div>`;
+    return `<div class="fin-item"><div class="row1"><span>${finCatIcons[i.category]||'💰'} ${i.category}</span><span>฿${Number(i.amount).toLocaleString()}</span></div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%; background:${incomeCatColors[i.category]||'var(--teal)'};"></div></div></div>`;
   }).join('') || `<div class="empty-note">ยังไม่มีรายรับ</div>`;
   document.getElementById('finSpendList').innerHTML = spend.map(s=>{
-    const budget = Number(s.budget)||0;
-    const pct = budget ? Math.min(100, Math.round((s.amount/budget)*100)) : 100;
-    const over = budget && s.amount > budget;
-    return `<div class="fin-item"><div class="row1"><span>${s.icon} ${s.name}</span><span>฿${Number(s.amount).toLocaleString()}${budget? ' / ฿'+budget.toLocaleString():''}</span></div>
-      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%; ${over?'background:#D9534F;':''}"></div></div></div>`;
+    const pct = spendTotal ? Math.round((s.amount/spendTotal)*100) : 0;
+    return `<div class="fin-item"><div class="row1"><span>${finCatIcons[s.category]||'🧾'} ${s.category}</span><span>฿${Number(s.amount).toLocaleString()}</span></div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%; background:${catColors[s.category]||'var(--maroon)'};"></div></div></div>`;
   }).join('') || `<div class="empty-note">ยังไม่มีรายจ่าย</div>`;
+
+  renderFinChart(income, spend);
 }
-async function addFinanceItem(type){
-  const name = prompt(type==='income' ? 'ชื่อรายรับ:' : 'ชื่อรายจ่าย:');
-  if(!name) return;
-  const amount = Number(prompt('จำนวนเงิน (บาท):', '0')) || 0;
-  let budget = 0;
-  if(type==='spending') budget = Number(prompt('งบที่ตั้งไว้ (บาท, เว้นว่าง = ไม่ตั้ง):', '0')) || 0;
+function renderFinChart(income, spend){
+  const cats = [
+    ...Object.keys(incomeCatColors).map(c=>({cat:c, color:incomeCatColors[c], amt: income.filter(i=>i.category===c).reduce((a,b)=>a+Number(b.amount),0)})),
+    ...Object.keys(catColors).map(c=>({cat:c, color:catColors[c], amt: spend.filter(i=>i.category===c).reduce((a,b)=>a+Number(b.amount),0)})),
+  ];
+  const max = Math.max(1, ...cats.map(c=>c.amt));
+  document.getElementById('finChart').innerHTML = cats.map(c=>{
+    const h = Math.max(3, Math.round((c.amt/max)*110));
+    return `<div class="fin-bar-col">
+      <div class="fin-bar-amt">${c.amt? '฿'+c.amt.toLocaleString() : ''}</div>
+      <div class="fin-bar" style="height:${h}px; background:${c.color};"></div>
+      <div class="fin-bar-label">${c.cat}</div>
+    </div>`;
+  }).join('');
+}
+function openAddFinanceModal(type){
+  finAddType = type;
+  finAddCategory = type==='income' ? 'เงินเดือน' : 'Food';
+  document.getElementById('finModalTitle').textContent = type==='income' ? 'เพิ่มรายรับ' : 'เพิ่มรายจ่าย';
+  document.getElementById('finAmountInput').value = '';
+  renderFinCatChips();
+  document.getElementById('addFinanceModal').classList.add('show');
+}
+function closeAddFinanceModal(){
+  document.getElementById('addFinanceModal').classList.remove('show');
+}
+function renderFinCatChips(){
+  const map = finAddType==='income' ? incomeCatColors : catColors;
+  document.getElementById('finCatRow').innerHTML = Object.keys(map).map(c=>{
+    const active = finAddCategory===c;
+    return `<div class="chip ${active?'active':''}" style="${active?`background:${map[c]}; border-color:${map[c]};`:''}" onclick="pickFinCat('${c}')">${finCatIcons[c]||''} ${c}</div>`;
+  }).join('');
+}
+function pickFinCat(c){ finAddCategory = c; renderFinCatChips(); }
+async function submitFinanceItem(){
+  const amount = Number(document.getElementById('finAmountInput').value) || 0;
+  if(!amount) return;
   await sb.from('finance_items').insert({
-    household_id: currentHouseholdId, type, name, amount, budget,
-    month: monthStr(), created_by: currentUser.id, icon: type==='income' ? '💰' : '🧾'
+    household_id: currentHouseholdId, type: finAddType, category: finAddCategory, amount,
+    entry_date: todayStr(), created_by: currentUser.id
   });
+  closeAddFinanceModal();
+}
+function exportFinancePDF(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const monthItems = itemsForViewMonth();
+  const income = monthItems.filter(f=>f.type==='income');
+  const spend = monthItems.filter(f=>f.type==='spending');
+  const incomeTotal = income.reduce((a,b)=>a+Number(b.amount),0);
+  const spendTotal = spend.reduce((a,b)=>a+Number(b.amount),0);
+  const monthLabel = document.getElementById('finMonthSel').selectedOptions[0].textContent + ' ' + finViewYear;
+
+  doc.setFontSize(16); doc.text(`Finance Summary - ${monthLabel}`, 14, 18);
+  doc.setFontSize(11);
+  doc.text(`Total Income: ${incomeTotal.toLocaleString()} THB`, 14, 30);
+  doc.text(`Total Spending: ${spendTotal.toLocaleString()} THB`, 14, 37);
+
+  let y = 50;
+  doc.setFontSize(13); doc.text('Income', 14, y); y += 7;
+  doc.setFontSize(10);
+  if(income.length){
+    income.forEach(i=>{ doc.text(`${i.category}  -  ${Number(i.amount).toLocaleString()} THB  (${i.entry_date})`, 16, y); y += 6; });
+  } else { doc.text('No income records', 16, y); y += 6; }
+
+  y += 6;
+  doc.setFontSize(13); doc.text('Spending', 14, y); y += 7;
+  doc.setFontSize(10);
+  if(spend.length){
+    spend.forEach(s=>{ doc.text(`${s.category}  -  ${Number(s.amount).toLocaleString()} THB  (${s.entry_date})`, 16, y); y += 6; });
+  } else { doc.text('No spending records', 16, y); y += 6; }
+
+  doc.save(`finance-${finViewYear}-${String(finViewMonth).padStart(2,'0')}.pdf`);
 }
 
 /* ---------- TRAVEL ---------- */
