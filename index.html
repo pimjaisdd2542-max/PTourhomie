@@ -200,12 +200,22 @@
   .fin-bar{width:65%; border-radius:8px 8px 0 0; min-height:3px;}
   .fin-bar-label{font-size:9.5px; font-weight:700; color:var(--muted); margin-top:6px; text-align:center;}
   .fin-cols{display:flex; gap:14px; margin-top:16px;}
-  .fin-col{flex:1;}
+  .fin-col{flex:1; min-width:0;}
+  .fin-scroll{max-height:340px; overflow-y:auto; overflow-x:hidden; padding-right:6px; scrollbar-width:thin; scrollbar-color:var(--pink) transparent;}
+  .fin-scroll::-webkit-scrollbar{width:5px;}
+  .fin-scroll::-webkit-scrollbar-track{background:transparent;}
+  .fin-scroll::-webkit-scrollbar-thumb{background:var(--pink); border-radius:99px;}
+  .fin-scroll::-webkit-scrollbar-thumb:hover{background:var(--maroon);}
   .fin-col h3{font-size:13.5px; margin:0; color:var(--maroon);}
   .fin-item{margin-bottom:14px;}
   .fin-item .row1{display:flex; justify-content:space-between; align-items:center; font-size:12.5px; font-weight:700; margin-bottom:6px; gap:6px;}
-  .fin-item .fin-date{font-size:10px; color:var(--muted); font-weight:700; margin-bottom:6px;}
+  .fin-item .fin-date{font-size:10px; color:var(--muted); font-weight:700; margin-bottom:0;}
   .fin-item .fin-score{font-size:10px; color:var(--muted); font-weight:800; margin-bottom:4px;}
+  .fin-divider{height:1.5px; background:var(--line); margin:4px 0 12px;}
+  .fin-summary{margin-bottom:0;}
+  .fin-summary-item{margin-bottom:12px;}
+  .fin-summary-item .row1{display:flex; justify-content:space-between; align-items:center; font-size:12.5px; font-weight:700; margin-bottom:5px; gap:6px;}
+  .fin-summary-item .fin-score{font-size:10px; color:var(--muted); font-weight:800; margin-bottom:4px;}
   .fin-item .actions{display:flex; align-items:center; gap:5px;}
   .fin-icon-btn{background:none; border:none; cursor:pointer; font-size:12px; padding:2px; opacity:.6; line-height:1;}
   .fin-icon-btn:hover{opacity:1;}
@@ -427,11 +437,15 @@
       <div class="fin-cols">
         <div class="fin-col">
           <div class="add-link-row"><h3>Income</h3><span class="add-link" onclick="openAddFinanceModal('income')">+ Add</span></div>
-          <div id="finIncomeList"></div>
+          <div id="finIncomeSummary" class="fin-summary"></div>
+          <div class="fin-divider"></div>
+          <div class="fin-scroll"><div id="finIncomeList"></div></div>
         </div>
         <div class="fin-col">
           <div class="add-link-row"><h3>Spending</h3><span class="add-link" onclick="openAddFinanceModal('spending')">+ Add</span></div>
-          <div id="finSpendList"></div>
+          <div id="finSpendSummary" class="fin-summary"></div>
+          <div class="fin-divider"></div>
+          <div class="fin-scroll"><div id="finSpendList"></div></div>
         </div>
       </div>
     </section>
@@ -1021,31 +1035,48 @@ function renderFinance(){
   document.getElementById('finTodaySpend').textContent = '฿ ' + todaySpend.toLocaleString();
   document.getElementById('finTodayIncome').textContent = '฿ ' + todayIncome.toLocaleString();
 
+  // ----- Category summaries (top) -----
+  const incomeCatTotals = {};
+  income.forEach(i=>{ incomeCatTotals[i.category] = (incomeCatTotals[i.category]||0) + Number(i.amount); });
+  document.getElementById('finIncomeSummary').innerHTML = Object.keys(incomeCatTotals).map(cat=>{
+    const total = incomeCatTotals[cat];
+    return `<div class="fin-summary-item"><div class="row1"><span>${finCatIcons[cat]||'💰'} ${cat}</span><span>฿${total.toLocaleString()}</span></div>
+      <div class="bar-bg"><div class="bar-fill" style="width:100%; background:${incomeCatColors[cat]||'var(--teal)'};"></div></div></div>`;
+  }).join('') || `<div class="empty-note">ยังไม่มีรายรับ</div>`;
+
+  const spendCatTotals = {};
+  spend.forEach(s=>{ spendCatTotals[s.category] = (spendCatTotals[s.category]||0) + Number(s.amount); });
+  document.getElementById('finSpendSummary').innerHTML = Object.keys(spendCatTotals).map(cat=>{
+    const total = spendCatTotals[cat];
+    const max = expenseCatMax[cat] || total || 1;
+    const usedPct = Math.round((total/max)*100);
+    const barPct = Math.min(100, usedPct);
+    const over = total > max;
+    const statusTxt = over ? `เกินงบ ${usedPct-100}%` : `เหลืออีก ${100-usedPct}%`;
+    return `<div class="fin-summary-item"><div class="row1"><span>${finCatIcons[cat]||'🧾'} ${cat}</span><span>฿${total.toLocaleString()}</span></div>
+      <div class="fin-score" style="${over?'color:var(--maroon);':''}">฿${total.toLocaleString()} / ฿${max.toLocaleString()} · ใช้ ${usedPct}% · ${statusTxt}</div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${barPct}%; background:${over?'var(--maroon)':(expenseCatColors[cat]||'var(--maroon)')};"></div></div></div>`;
+  }).join('') || `<div class="empty-note">ยังไม่มีรายจ่าย</div>`;
+
+  // ----- Daily transaction list (bottom, scrollable) -----
   document.getElementById('finIncomeList').innerHTML = income.map(i=>{
     return `<div class="fin-item"><div class="row1"><span>${finCatIcons[i.category]||'💰'} ${i.category}</span>
       <span class="actions">฿${Number(i.amount).toLocaleString()}
         <button class="fin-icon-btn" onclick="openEditFinanceModal('${i.id}')">✏️</button>
         <button class="fin-icon-btn" onclick="deleteFinanceItem('${i.id}')">🗑️</button>
       </span></div>
-      <div class="fin-date">📅 ${formatDateTH(i.entry_date)}</div>
-      <div class="bar-bg"><div class="bar-fill" style="width:100%; background:${incomeCatColors[i.category]||'var(--teal)'};"></div></div></div>`;
+      <div class="fin-date">📅 ${formatDateTH(i.entry_date)}</div></div>`;
   }).join('') || `<div class="empty-note">ยังไม่มีรายรับ</div>`;
-  const spendCatTotals = {};
-  spend.forEach(s=>{ spendCatTotals[s.category] = (spendCatTotals[s.category]||0) + Number(s.amount); });
+
   document.getElementById('finSpendList').innerHTML = spend.map(s=>{
-    const catTotal = spendCatTotals[s.category] || 0;
-    const max = expenseCatMax[s.category] || catTotal || 1;
-    const pct = Math.min(100, Math.round((catTotal/max)*100));
-    const over = catTotal > max;
     return `<div class="fin-item"><div class="row1"><span>${finCatIcons[s.category]||'🧾'} ${s.category}</span>
       <span class="actions">฿${Number(s.amount).toLocaleString()}
         <button class="fin-icon-btn" onclick="openEditFinanceModal('${s.id}')">✏️</button>
         <button class="fin-icon-btn" onclick="deleteFinanceItem('${s.id}')">🗑️</button>
       </span></div>
-      <div class="fin-date">📅 ${formatDateTH(s.entry_date)}</div>
-      <div class="fin-score" style="${over?'color:var(--maroon);':''}">฿${catTotal.toLocaleString()} / ฿${max.toLocaleString()} (${pct}%)</div>
-      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%; background:${over?'var(--maroon)':(expenseCatColors[s.category]||'var(--maroon)')};"></div></div></div>`;
+      <div class="fin-date">📅 ${formatDateTH(s.entry_date)}</div></div>`;
   }).join('') || `<div class="empty-note">ยังไม่มีรายจ่าย</div>`;
+
 
   renderFinChart(income, spend);
 }
