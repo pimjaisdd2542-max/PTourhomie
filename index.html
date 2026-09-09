@@ -204,6 +204,8 @@
   .fin-col h3{font-size:13.5px; margin:0; color:var(--maroon);}
   .fin-item{margin-bottom:14px;}
   .fin-item .row1{display:flex; justify-content:space-between; align-items:center; font-size:12.5px; font-weight:700; margin-bottom:6px; gap:6px;}
+  .fin-item .fin-date{font-size:10px; color:var(--muted); font-weight:700; margin-bottom:6px;}
+  .fin-item .fin-score{font-size:10px; color:var(--muted); font-weight:800; margin-bottom:4px;}
   .fin-item .actions{display:flex; align-items:center; gap:5px;}
   .fin-icon-btn{background:none; border:none; cursor:pointer; font-size:12px; padding:2px; opacity:.6; line-height:1;}
   .fin-icon-btn:hover{opacity:1;}
@@ -527,8 +529,9 @@ let finAddType = 'income', finAddCategory = 'เงินเดือน', finEd
 
 const catColors = {Food:'#F4A25E', Home:'#B79CE0', Health:'#8FD1EC', Child:'#F5A6B6'};
 const incomeCatColors = {'เงินเดือน':'#3F9C8C', 'อื่นๆ':'#6FC7B8'};
-const expenseCatColors = {Food:'#F4A25E', Home:'#B79CE0', Health:'#8FD1EC', Child:'#F5A6B6', Travel:'#5FA8D3'};
-const finCatIcons = {'เงินเดือน':'💰', 'อื่นๆ':'💵', Food:'🍔', Home:'🏠', Health:'💊', Child:'🍼', Travel:'✈️'};
+const expenseCatColors = {Food:'#F4A25E', Home:'#B79CE0', Health:'#8FD1EC', Child:'#F5A6B6', Travel:'#5FA8D3', Car:'#E0A96D', Shopping:'#D98CC0'};
+const finCatIcons = {'เงินเดือน':'💰', 'อื่นๆ':'💵', Food:'🍔', Home:'🏠', Health:'💊', Child:'🍼', Travel:'✈️', Car:'🚗', Shopping:'🛍️'};
+const expenseCatMax = {Travel:10000, Food:3500, Home:2000, Health:1000, Child:15000, Car:9000, Shopping:3000};
 const moods = [
   {key:'happy', ic:'😊', label:'Happy', color:'#F9C8D4'},
   {key:'calm', ic:'😌', label:'Calm', color:'#B79CE0'},
@@ -716,7 +719,7 @@ function renderHomeShoppingPreview(){
   const box = document.getElementById('homeShoppingPreview');
   box.innerHTML = shoppingData.slice(0,3).map(i=>`
     <div class="list-item">
-      <div class="chk ${i.done?'done':''}">${i.done?'✓':''}</div>
+      <div class="chk ${i.done?'done':''}" onclick="toggleShop('${i.id}', ${i.done})">${i.done?'✓':''}</div>
       <div class="item-name ${i.done?'done':''}">${i.name}</div>
       <div class="tag" style="color:${catColors[i.category]}; background:${catColors[i.category]}22;">${i.category}</div>
     </div>`).join('') || `<div class="empty-note">ยังไม่มีของในลิสต์</div>`;
@@ -748,6 +751,7 @@ async function toggleShop(id, done){
   // เอาออกจากหน้าจอทันทีให้รู้สึกลื่นไหล ก่อนลบจริงใน Supabase
   shoppingData = shoppingData.filter(i => i.id !== id);
   renderShopping();
+  renderHomeShoppingPreview();
   renderHomeStats();
   await sb.from('shopping_items').delete().eq('id', id);
 }
@@ -993,6 +997,13 @@ function renderFinBalance(){
   document.getElementById('finBalanceAmt').textContent = (remaining>=0?'+':'-') + '฿ ' + Math.abs(remaining).toLocaleString();
   document.getElementById('finBalancePct').textContent = (pct>=0?'+':'') + pct + '%';
 }
+function formatDateTH(dateStr){
+  if(!dateStr) return '';
+  const [y,m,d] = dateStr.split('-').map(Number);
+  if(!y||!m||!d) return dateStr;
+  const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  return `${d} ${months[m-1]} ${y}`;
+}
 function renderFinance(){
   renderFinBalance();
   const monthItems = itemsForViewMonth();
@@ -1011,22 +1022,29 @@ function renderFinance(){
   document.getElementById('finTodayIncome').textContent = '฿ ' + todayIncome.toLocaleString();
 
   document.getElementById('finIncomeList').innerHTML = income.map(i=>{
-    const pct = incomeTotal ? Math.round((i.amount/incomeTotal)*100) : 0;
     return `<div class="fin-item"><div class="row1"><span>${finCatIcons[i.category]||'💰'} ${i.category}</span>
       <span class="actions">฿${Number(i.amount).toLocaleString()}
         <button class="fin-icon-btn" onclick="openEditFinanceModal('${i.id}')">✏️</button>
         <button class="fin-icon-btn" onclick="deleteFinanceItem('${i.id}')">🗑️</button>
       </span></div>
-      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%; background:${incomeCatColors[i.category]||'var(--teal)'};"></div></div></div>`;
+      <div class="fin-date">📅 ${formatDateTH(i.entry_date)}</div>
+      <div class="bar-bg"><div class="bar-fill" style="width:100%; background:${incomeCatColors[i.category]||'var(--teal)'};"></div></div></div>`;
   }).join('') || `<div class="empty-note">ยังไม่มีรายรับ</div>`;
+  const spendCatTotals = {};
+  spend.forEach(s=>{ spendCatTotals[s.category] = (spendCatTotals[s.category]||0) + Number(s.amount); });
   document.getElementById('finSpendList').innerHTML = spend.map(s=>{
-    const pct = spendTotal ? Math.round((s.amount/spendTotal)*100) : 0;
+    const catTotal = spendCatTotals[s.category] || 0;
+    const max = expenseCatMax[s.category] || catTotal || 1;
+    const pct = Math.min(100, Math.round((catTotal/max)*100));
+    const over = catTotal > max;
     return `<div class="fin-item"><div class="row1"><span>${finCatIcons[s.category]||'🧾'} ${s.category}</span>
       <span class="actions">฿${Number(s.amount).toLocaleString()}
         <button class="fin-icon-btn" onclick="openEditFinanceModal('${s.id}')">✏️</button>
         <button class="fin-icon-btn" onclick="deleteFinanceItem('${s.id}')">🗑️</button>
       </span></div>
-      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%; background:${expenseCatColors[s.category]||'var(--maroon)'};"></div></div></div>`;
+      <div class="fin-date">📅 ${formatDateTH(s.entry_date)}</div>
+      <div class="fin-score" style="${over?'color:var(--maroon);':''}">฿${catTotal.toLocaleString()} / ฿${max.toLocaleString()} (${pct}%)</div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%; background:${over?'var(--maroon)':(expenseCatColors[s.category]||'var(--maroon)')};"></div></div></div>`;
   }).join('') || `<div class="empty-note">ยังไม่มีรายจ่าย</div>`;
 
   renderFinChart(income, spend);
