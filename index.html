@@ -1089,11 +1089,11 @@ async function submitFinanceItem(){
   if(!amount) return;
   let error;
   if(finEditId){
-    ({ error } = await sb.from('finance_items').update({ category: finAddCategory, amount }).eq('id', finEditId));
+    ({ error } = await sb.from('finance_items').update({ category: finAddCategory, amount, name: finAddCategory }).eq('id', finEditId));
     finEditId = null;
   } else {
     ({ error } = await sb.from('finance_items').insert({
-      household_id: currentHouseholdId, type: finAddType, category: finAddCategory, amount,
+      household_id: currentHouseholdId, type: finAddType, category: finAddCategory, amount, name: finAddCategory,
       entry_date: todayStr(), created_by: currentUser.id
     }));
   }
