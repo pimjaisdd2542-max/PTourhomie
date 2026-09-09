@@ -177,6 +177,12 @@
   .cal-event-tag{font-size:10.5px; font-weight:800; padding:3px 9px; border-radius:999px; flex-shrink:0;}
 
   /* ===== Finance ===== */
+  .fin-balance-row{display:flex; gap:10px; margin-bottom:14px;}
+  .fin-balance-card{flex:1; border-radius:18px; padding:14px 16px; background:#fff; border:1.5px solid var(--line);}
+  .fin-balance-card .lbl{font-size:11px; color:var(--muted); font-weight:700;}
+  .fin-balance-card .amt{font-family:'Baloo 2'; font-size:20px; font-weight:800; margin-top:3px;}
+  .fin-balance-card.positive .amt{color:#3F9C8C;}
+  .fin-balance-card.negative .amt{color:var(--maroon);}
   .money-box{border-radius:20px; padding:18px 18px; background:linear-gradient(135deg,var(--maroon),var(--maroon-dark)); color:#fff; margin-bottom:12px;}
   .money-box .lbl{font-size:12.5px; opacity:.85; font-weight:700;}
   .money-box .amt{font-family:'Baloo 2'; font-size:26px; font-weight:800; margin-top:4px;}
@@ -396,6 +402,11 @@
       <div class="fin-nav">
         <select id="finMonthSel" onchange="onFinDateChange()"></select>
         <select id="finYearSel" onchange="onFinDateChange()"></select>
+      </div>
+
+      <div class="fin-balance-row">
+        <div class="fin-balance-card" id="finBalanceCard"><div class="lbl">ยอดคงเหลือรวม</div><div class="amt" id="finBalanceAmt">฿ 0</div></div>
+        <div class="fin-balance-card" id="finBalancePctCard"><div class="lbl">% คงเหลือ</div><div class="amt" id="finBalancePct">0%</div></div>
       </div>
 
       <div class="money-box"><div class="lbl">This month's spending</div><div class="amt" id="finSpendTotal">฿ 0</div></div>
@@ -682,17 +693,15 @@ function subscribeRealtime(){
 /* ---------- HOME ---------- */
 function renderHomeStats(){
   const undone = shoppingData.filter(i=>!i.done).length;
-  const curYM = todayStr().slice(0,7);
-  const spend = financeItems.filter(f=>f.type==='spending' && (f.entry_date||'').slice(0,7)===curYM).reduce((a,b)=>a+Number(b.amount),0);
-  const income = financeItems.filter(f=>f.type==='income' && (f.entry_date||'').slice(0,7)===curYM).reduce((a,b)=>a+Number(b.amount),0);
-  const pct = income ? Math.round((spend/income)*100) : 0;
+  const { remaining, pct } = computeFinBalance();
+  const budgetColor = pct >= 0 ? '#3F9C8C' : 'var(--maroon)';
   const homeVisibleEvents = calendarEvents.filter(e => (e.visibility||'shared')==='shared' || e.created_by===currentUser.id);
   document.getElementById('homeStats').innerHTML = `
     <div class="stat-card"><div class="em">🛒</div><div class="stat-num">${undone}</div><div class="stat-label">Shopping</div></div>
     <div class="stat-card"><div class="em">📅</div><div class="stat-num">${homeVisibleEvents.length}</div><div class="stat-label">Events</div></div>
     <div class="stat-card"><div class="em">✈️</div><div class="stat-num">${trips.length}</div><div class="stat-label">Travel Trip</div></div>
     <div class="stat-card"><div class="em">👶</div><div class="stat-num">${children.length}</div><div class="stat-label">Child</div></div>
-    <div class="stat-card"><div class="em">🐷</div><div class="stat-num">${pct}%</div><div class="stat-label">Budget</div></div>`;
+    <div class="stat-card" onclick="goScreen('finance')" style="cursor:pointer;"><div class="em">🐷</div><div class="stat-num" style="color:${budgetColor};">${pct>=0?'+':''}${pct}%</div><div class="stat-label">${formatCompactTHB(remaining)}</div></div>`;
   const todayBox = document.getElementById('homeToday');
   const upcoming = homeVisibleEvents.filter(e=>e.event_date >= todayStr()).slice(0,1);
   todayBox.innerHTML = upcoming.length ? upcoming.map(e=>`
@@ -931,7 +940,8 @@ function setCalTab(t, btn){
 
 /* ---------- FINANCE ---------- */
 async function loadFinance(){
-  const { data } = await sb.from('finance_items').select('*').eq('household_id', currentHouseholdId);
+  const { data, error } = await sb.from('finance_items').select('*').eq('household_id', currentHouseholdId);
+  if(error){ console.error('loadFinance error:', error); }
   financeItems = data || [];
   initFinSelects();
   renderFinance();
@@ -959,7 +969,32 @@ function itemsForViewMonth(){
   const ym = `${finViewYear}-${String(finViewMonth).padStart(2,'0')}`;
   return financeItems.filter(f => (f.entry_date||'').slice(0,7)===ym);
 }
+function computeFinBalance(){
+  // Cumulative across ALL months (carries forward previous months' leftover balance)
+  const totalIncome = financeItems.filter(f=>f.type==='income').reduce((a,b)=>a+Number(b.amount),0);
+  const totalSpend = financeItems.filter(f=>f.type==='spending').reduce((a,b)=>a+Number(b.amount),0);
+  const remaining = totalIncome - totalSpend;
+  const pct = totalIncome ? Math.round((remaining/totalIncome)*100) : 0;
+  return { totalIncome, totalSpend, remaining, pct };
+}
+function formatCompactTHB(n){
+  const sign = n < 0 ? '-' : '';
+  const abs = Math.abs(n);
+  if(abs >= 1000000) return sign + '฿' + (abs/1000000).toFixed(abs%1000000===0?0:1) + 'M';
+  if(abs >= 10000) return sign + '฿' + (abs/1000).toFixed(abs%1000===0?0:1) + 'k';
+  return sign + '฿' + abs.toLocaleString();
+}
+function renderFinBalance(){
+  const { remaining, pct } = computeFinBalance();
+  const balCard = document.getElementById('finBalanceCard');
+  const pctCard = document.getElementById('finBalancePctCard');
+  balCard.className = 'fin-balance-card ' + (remaining >= 0 ? 'positive' : 'negative');
+  pctCard.className = 'fin-balance-card ' + (pct >= 0 ? 'positive' : 'negative');
+  document.getElementById('finBalanceAmt').textContent = (remaining>=0?'+':'-') + '฿ ' + Math.abs(remaining).toLocaleString();
+  document.getElementById('finBalancePct').textContent = (pct>=0?'+':'') + pct + '%';
+}
 function renderFinance(){
+  renderFinBalance();
   const monthItems = itemsForViewMonth();
   const income = monthItems.filter(f=>f.type==='income');
   const spend = monthItems.filter(f=>f.type==='spending');
@@ -1037,7 +1072,9 @@ function closeAddFinanceModal(){
 }
 async function deleteFinanceItem(id){
   if(!confirm('ลบรายการนี้?')) return;
-  await sb.from('finance_items').delete().eq('id', id);
+  const { error } = await sb.from('finance_items').delete().eq('id', id);
+  if(error){ alert('ลบไม่สำเร็จ: ' + error.message); console.error(error); return; }
+  await loadFinance();
 }
 function renderFinCatChips(){
   const map = finAddType==='income' ? incomeCatColors : expenseCatColors;
@@ -1050,16 +1087,23 @@ function pickFinCat(c){ finAddCategory = c; renderFinCatChips(); }
 async function submitFinanceItem(){
   const amount = Number(document.getElementById('finAmountInput').value) || 0;
   if(!amount) return;
+  let error;
   if(finEditId){
-    await sb.from('finance_items').update({ category: finAddCategory, amount }).eq('id', finEditId);
+    ({ error } = await sb.from('finance_items').update({ category: finAddCategory, amount }).eq('id', finEditId));
     finEditId = null;
   } else {
-    await sb.from('finance_items').insert({
+    ({ error } = await sb.from('finance_items').insert({
       household_id: currentHouseholdId, type: finAddType, category: finAddCategory, amount,
       entry_date: todayStr(), created_by: currentUser.id
-    });
+    }));
+  }
+  if(error){
+    alert('บันทึกไม่สำเร็จ: ' + error.message);
+    console.error(error);
+    return;
   }
   closeAddFinanceModal();
+  await loadFinance();
 }
 function exportFinancePDF(){
   const { jsPDF } = window.jspdf;
