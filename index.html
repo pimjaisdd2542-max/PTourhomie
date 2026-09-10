@@ -142,6 +142,7 @@
   .toggle-pair{display:flex; gap:8px; margin-bottom:16px;}
   .pill{flex:1; text-align:center; border-radius:999px; padding:9px 0; font-size:12.5px; font-weight:800; border:1.5px solid var(--line); cursor:pointer; color:var(--muted);}
   .pill.on-shared{border-color:var(--maroon); color:var(--maroon); background:#fff;}
+  .pill.on-child{border-color:#3F9C8C; color:#2E7D6B; background:#EAFBF5;}
   .pill.on-personal{border-color:var(--blue); color:#2A7A93; background:#EAF7FC;}
   .tab-row{display:flex; background:var(--pink-soft); border-radius:999px; padding:4px; margin-bottom:18px;}
   .tab-row button{flex:1; border:none; background:transparent; padding:9px 0; font-size:13px; font-weight:700; color:var(--muted); border-radius:999px; cursor:pointer;}
@@ -443,6 +444,11 @@
       <div class="toggle-pair">
         <div class="pill on-shared" id="finPillShared" onclick="setFinMode('shared')">● Shared</div>
         <div class="pill" id="finPillPersonal" onclick="setFinMode('personal')">● Personal</div>
+        <div class="pill" id="finPillChild" onclick="setFinMode('child')">● Child</div>
+      </div>
+
+      <div class="fin-nav" id="finChildRow" style="display:none;">
+        <select id="finChildSel" onchange="onFinChildChange()"></select>
       </div>
 
       <div class="fin-nav">
@@ -692,15 +698,17 @@ let shoppingData = [], trips = [], children = [], financeItems = [], calendarEve
 let currentChildId = null, childCalMonthOffset = 0, childPhotoFile = null;
 let shopFilter = 'All', selectedMood = null, calMode = 'shared', calTab = 'month', calMonthOffset = 0;
 let finViewYear = new Date().getFullYear(), finViewMonth = new Date().getMonth()+1;
-let finAddType = 'income', finAddCategory = 'เงินเดือน', finEditId = null, finMode = 'shared';
+let finAddType = 'income', finAddCategory = 'เงินเดือน', finEditId = null, finMode = 'shared', finChildId = null;
 
 const catColors = {Food:'#F4A25E', Home:'#B79CE0', Health:'#8FD1EC', Child:'#F5A6B6'};
-const incomeCatColors = {'เงินเดือน':'#3F9C8C', 'อื่นๆ':'#6FC7B8'};
-const expenseCatColors = {Food:'#F4A25E', Home:'#B79CE0', Health:'#8FD1EC', Child:'#F5A6B6', Travel:'#5FA8D3', Car:'#E0A96D', Shopping:'#D98CC0'};
+const incomeCatColors = {'เงินเดือน':'#3F9C8C', 'อื่นๆ':'#6FC7B8', 'ดอกเบี้ย':'#4FB0A5', 'เงินเก็บ':'#2E9E7A'};
+const childIncomeCatColors = {'เงินเก็บ':'#2E9E7A'};
+const expenseCatColors = {Food:'#F4A25E', Home:'#B79CE0', Health:'#8FD1EC', Child:'#F5A6B6', Travel:'#5FA8D3', Car:'#E0A96D', Shopping:'#D98CC0', 'ค่าเทอมลูก':'#F08FA2'};
 const personalExpenseCatColors = {Shopee:'#EE6C9B', Oil:'#5B9BD5', Other:'#9B9B9B', Family:'#F2A65A', 'Save Money':'#3F9C8C'};
-const finCatIcons = {'เงินเดือน':'💰', 'อื่นๆ':'💵', Food:'🍔', Home:'🏠', Health:'💊', Child:'🍼', Travel:'✈️', Car:'🚗', Shopping:'🛍️', Shopee:'🛒', Oil:'⛽', Other:'📦', Family:'👨‍👩‍👧', 'Save Money':'🐷'};
-const expenseCatMax = {Travel:10000, Food:3500, Home:2000, Health:1000, Child:15000, Car:9000, Shopping:3000};
+const finCatIcons = {'เงินเดือน':'💰', 'อื่นๆ':'💵', 'ดอกเบี้ย':'📈', 'เงินเก็บ':'🐷', Food:'🍔', Home:'🏠', Health:'💊', Child:'🍼', Travel:'✈️', Car:'🚗', Shopping:'🛍️', 'ค่าเทอมลูก':'🎓', Shopee:'🛒', Oil:'⛽', Other:'📦', Family:'👨‍👩‍👧', 'Save Money':'🐷'};
+const expenseCatMax = {Travel:10000, Food:3500, Home:2000, Health:1000, Child:15000, Car:9000, Shopping:3000, 'ค่าเทอมลูก':15000};
 const personalExpenseCatMax = {Shopee:3000, Oil:2000, Other:1500, Family:5000, 'Save Money':10000};
+function currentIncomeCatColors(){ return finMode==='child' ? childIncomeCatColors : incomeCatColors; }
 function currentExpenseCatColors(){ return finMode==='personal' ? personalExpenseCatColors : expenseCatColors; }
 function currentExpenseCatMax(){ return finMode==='personal' ? personalExpenseCatMax : expenseCatMax; }
 const moods = [
@@ -1159,6 +1167,26 @@ function setFinMode(mode){
   finMode = mode;
   document.getElementById('finPillShared').className = 'pill' + (mode==='shared' ? ' on-shared' : '');
   document.getElementById('finPillPersonal').className = 'pill' + (mode==='personal' ? ' on-personal' : '');
+  document.getElementById('finPillChild').className = 'pill' + (mode==='child' ? ' on-child' : '');
+  document.getElementById('finChildRow').style.display = mode==='child' ? '' : 'none';
+  if(mode==='child') populateFinChildSelect();
+  renderFinance();
+}
+function populateFinChildSelect(){
+  const sel = document.getElementById('finChildSel');
+  if(!children.length){
+    sel.innerHTML = `<option value="">ยังไม่มีข้อมูลลูก - ไปเพิ่มที่หน้า Child ก่อน</option>`;
+    finChildId = null;
+    return;
+  }
+  sel.innerHTML = children.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  if(!finChildId || !children.find(c=>String(c.id)===String(finChildId))){
+    finChildId = children[0].id;
+  }
+  sel.value = finChildId;
+}
+function onFinChildChange(){
+  finChildId = document.getElementById('finChildSel').value || null;
   renderFinance();
 }
 function onFinDateChange(){
@@ -1167,9 +1195,10 @@ function onFinDateChange(){
   renderFinance();
 }
 function financeItemsForMode(mode){
-  return mode==='shared'
-    ? financeItems.filter(f => (f.visibility||'shared')==='shared')
-    : financeItems.filter(f => f.created_by===currentUser.id && f.visibility==='personal');
+  if(mode==='shared') return financeItems.filter(f => (f.visibility||'shared')==='shared');
+  if(mode==='personal') return financeItems.filter(f => f.created_by===currentUser.id && f.visibility==='personal');
+  if(mode==='child') return financeItems.filter(f => f.visibility==='child' && String(f.child_id)===String(finChildId));
+  return [];
 }
 function itemsForViewMonth(){
   const ym = `${finViewYear}-${String(finViewMonth).padStart(2,'0')}`;
@@ -1225,12 +1254,13 @@ function renderFinance(){
   document.getElementById('finTodayIncome').textContent = '฿ ' + todayIncome.toLocaleString();
 
   // ----- Category summaries (top) -----
+  const incCatColors = currentIncomeCatColors();
   const incomeCatTotals = {};
   income.forEach(i=>{ incomeCatTotals[i.category] = (incomeCatTotals[i.category]||0) + Number(i.amount); });
   document.getElementById('finIncomeSummary').innerHTML = Object.keys(incomeCatTotals).map(cat=>{
     const total = incomeCatTotals[cat];
     return `<div class="fin-summary-item"><div class="row1"><span>${finCatIcons[cat]||'💰'} ${cat}</span><span>฿${total.toLocaleString()}</span></div>
-      <div class="bar-bg"><div class="bar-fill" style="width:100%; background:${incomeCatColors[cat]||'var(--teal)'};"></div></div></div>`;
+      <div class="bar-bg"><div class="bar-fill" style="width:100%; background:${incCatColors[cat]||'var(--teal)'};"></div></div></div>`;
   }).join('') || `<div class="empty-note">ยังไม่มีรายรับ</div>`;
 
   const spendCatTotals = {};
@@ -1272,9 +1302,10 @@ function renderFinance(){
   renderFinChart(income, spend);
 }
 function renderFinChart(income, spend){
+  const incCatColors = currentIncomeCatColors();
   const expCatColors = currentExpenseCatColors();
   const cats = [
-    ...Object.keys(incomeCatColors).map(c=>({cat:c, color:incomeCatColors[c], amt: income.filter(i=>i.category===c).reduce((a,b)=>a+Number(b.amount),0)})),
+    ...Object.keys(incCatColors).map(c=>({cat:c, color:incCatColors[c], amt: income.filter(i=>i.category===c).reduce((a,b)=>a+Number(b.amount),0)})),
     ...Object.keys(expCatColors).map(c=>({cat:c, color:expCatColors[c], amt: spend.filter(i=>i.category===c).reduce((a,b)=>a+Number(b.amount),0)})),
   ];
   const max = Math.max(1, ...cats.map(c=>c.amt));
@@ -1288,9 +1319,10 @@ function renderFinChart(income, spend){
   }).join('');
 }
 function openAddFinanceModal(type){
+  if(finMode==='child' && !finChildId){ alert('กรุณาไปเพิ่มข้อมูลลูกที่หน้า Child ก่อน'); return; }
   finEditId = null;
   finAddType = type;
-  finAddCategory = type==='income' ? 'เงินเดือน' : Object.keys(currentExpenseCatColors())[0];
+  finAddCategory = type==='income' ? Object.keys(currentIncomeCatColors())[0] : Object.keys(currentExpenseCatColors())[0];
   document.getElementById('finModalTitle').textContent = type==='income' ? 'เพิ่มรายรับ' : 'เพิ่มรายจ่าย';
   document.getElementById('finAmountInput').value = '';
   renderFinCatChips();
@@ -1318,7 +1350,7 @@ async function deleteFinanceItem(id){
   await loadFinance();
 }
 function renderFinCatChips(){
-  const map = finAddType==='income' ? incomeCatColors : currentExpenseCatColors();
+  const map = finAddType==='income' ? currentIncomeCatColors() : currentExpenseCatColors();
   document.getElementById('finCatRow').innerHTML = Object.keys(map).map(c=>{
     const active = finAddCategory===c;
     return `<div class="chip ${active?'active':''}" style="${active?`background:${map[c]}; border-color:${map[c]};`:''}" onclick="pickFinCat('${c}')">${finCatIcons[c]||''} ${c}</div>`;
@@ -1335,7 +1367,8 @@ async function submitFinanceItem(){
   } else {
     ({ error } = await sb.from('finance_items').insert({
       household_id: currentHouseholdId, type: finAddType, category: finAddCategory, amount, name: finAddCategory,
-      entry_date: todayStr(), created_by: currentUser.id, visibility: finMode
+      entry_date: todayStr(), created_by: currentUser.id, visibility: finMode,
+      child_id: finMode==='child' ? finChildId : null
     }));
   }
   if(error){
@@ -1524,6 +1557,7 @@ async function loadChildren(){
   childWeights = w || [];
   renderChildren();
   if(document.getElementById('screen-child-detail').classList.contains('active')) renderChildDetail();
+  if(finMode==='child') populateFinChildSelect();
   renderHomeStats();
 }
 function calcAge(birthday){
