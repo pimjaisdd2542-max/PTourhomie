@@ -410,6 +410,7 @@
 
       <!-- LIST VIEW -->
       <div id="calView-list" style="display:none;">
+        <div class="cal-head"><button class="cal-nav" onclick="navMonth(-1)">‹</button><strong id="calListMonthLabel">-</strong><button class="cal-nav" onclick="navMonth(1)">›</button></div>
         <button class="add-btn" onclick="openAddEventModal()" style="margin-bottom:16px;">+ Add Event</button>
         <div id="calListBox"></div>
       </div>
@@ -438,6 +439,11 @@
     <!-- FINANCE -->
     <section class="screen" id="screen-finance">
       <div class="topbar"><h1>💳 Finance</h1><button class="icon-btn" onclick="goScreen('home')">🏠</button></div>
+
+      <div class="toggle-pair">
+        <div class="pill on-shared" id="finPillShared" onclick="setFinMode('shared')">● Shared</div>
+        <div class="pill" id="finPillPersonal" onclick="setFinMode('personal')">● Personal</div>
+      </div>
 
       <div class="fin-nav">
         <select id="finMonthSel" onchange="onFinDateChange()"></select>
@@ -597,6 +603,7 @@
           <div class="grid7" id="childCalGrid"></div>
         </div>
         <div id="childCalView-list" style="display:none;">
+          <div class="cal-head"><button class="cal-nav" onclick="navChildCalMonth(-1)">‹</button><strong id="childCalListMonthLabel">-</strong><button class="cal-nav" onclick="navChildCalMonth(1)">›</button></div>
           <button class="add-btn" onclick="openAddChildEventModal()" style="margin-bottom:16px;">+ Add Appointment</button>
           <div id="childCalListBox"></div>
         </div>
@@ -685,13 +692,17 @@ let shoppingData = [], trips = [], children = [], financeItems = [], calendarEve
 let currentChildId = null, childCalMonthOffset = 0, childPhotoFile = null;
 let shopFilter = 'All', selectedMood = null, calMode = 'shared', calTab = 'month', calMonthOffset = 0;
 let finViewYear = new Date().getFullYear(), finViewMonth = new Date().getMonth()+1;
-let finAddType = 'income', finAddCategory = 'เงินเดือน', finEditId = null;
+let finAddType = 'income', finAddCategory = 'เงินเดือน', finEditId = null, finMode = 'shared';
 
 const catColors = {Food:'#F4A25E', Home:'#B79CE0', Health:'#8FD1EC', Child:'#F5A6B6'};
 const incomeCatColors = {'เงินเดือน':'#3F9C8C', 'อื่นๆ':'#6FC7B8'};
 const expenseCatColors = {Food:'#F4A25E', Home:'#B79CE0', Health:'#8FD1EC', Child:'#F5A6B6', Travel:'#5FA8D3', Car:'#E0A96D', Shopping:'#D98CC0'};
-const finCatIcons = {'เงินเดือน':'💰', 'อื่นๆ':'💵', Food:'🍔', Home:'🏠', Health:'💊', Child:'🍼', Travel:'✈️', Car:'🚗', Shopping:'🛍️'};
+const personalExpenseCatColors = {Shopee:'#EE6C9B', Oil:'#5B9BD5', Other:'#9B9B9B', Family:'#F2A65A', 'Save Money':'#3F9C8C'};
+const finCatIcons = {'เงินเดือน':'💰', 'อื่นๆ':'💵', Food:'🍔', Home:'🏠', Health:'💊', Child:'🍼', Travel:'✈️', Car:'🚗', Shopping:'🛍️', Shopee:'🛒', Oil:'⛽', Other:'📦', Family:'👨‍👩‍👧', 'Save Money':'🐷'};
 const expenseCatMax = {Travel:10000, Food:3500, Home:2000, Health:1000, Child:15000, Car:9000, Shopping:3000};
+const personalExpenseCatMax = {Shopee:3000, Oil:2000, Other:1500, Family:5000, 'Save Money':10000};
+function currentExpenseCatColors(){ return finMode==='personal' ? personalExpenseCatColors : expenseCatColors; }
+function currentExpenseCatMax(){ return finMode==='personal' ? personalExpenseCatMax : expenseCatMax; }
 const moods = [
   {key:'happy', ic:'😊', label:'Happy', color:'#F9C8D4'},
   {key:'calm', ic:'😌', label:'Calm', color:'#B79CE0'},
@@ -856,7 +867,7 @@ function subscribeRealtime(){
 /* ---------- HOME ---------- */
 function renderHomeStats(){
   const undone = shoppingData.filter(i=>!i.done).length;
-  const { remaining, pct } = computeFinBalance();
+  const { remaining, pct } = computeFinBalance('shared');
   const budgetColor = pct >= 0 ? '#3F9C8C' : 'var(--maroon)';
   const homeVisibleEvents = calendarEvents.filter(e => (e.visibility||'shared')==='shared' || e.created_by===currentUser.id);
   document.getElementById('homeStats').innerHTML = `
@@ -866,11 +877,12 @@ function renderHomeStats(){
     <div class="stat-card"><div class="em">👶</div><div class="stat-num">${children.length}</div><div class="stat-label">Child</div></div>
     <div class="stat-card" onclick="goScreen('finance')" style="cursor:pointer;"><div class="em">🐷</div><div class="stat-num" style="color:${budgetColor};">${pct>=0?'+':''}${pct}%</div><div class="stat-label">${formatCompactTHB(remaining)}</div></div>`;
   const todayBox = document.getElementById('homeToday');
-  const upcoming = homeVisibleEvents.filter(e=>e.event_date >= todayStr()).slice(0,1);
-  todayBox.innerHTML = upcoming.length ? upcoming.map(e=>`
+  const todaysEvents = homeVisibleEvents.filter(e=>e.event_date === todayStr());
+  todayBox.innerHTML = todaysEvents.length ? todaysEvents.map(e=>`
     <div class="list-item"><div class="dot-ic">${e.child_id?'🩺':'📌'}</div><div class="item-name">${e.title}${e.child_id?' · '+(childNameById(e.child_id)||''):''}</div></div>`).join('')
     : `<div class="empty-note">ยังไม่มีนัดหมายวันนี้</div>`;
-  document.getElementById('homeEvents').innerHTML = homeVisibleEvents.slice(0,3).map(e=>`
+  const futureEvents = homeVisibleEvents.filter(e=>e.event_date > todayStr());
+  document.getElementById('homeEvents').innerHTML = futureEvents.slice(0,3).map(e=>`
     <div class="list-item"><div class="date-chip">${e.event_date.slice(8,10)}</div><div class="item-name">${e.title}${e.child_id?' · 🩺 '+(childNameById(e.child_id)||''):''}</div></div>`).join('')
     || `<div class="empty-note">ยังไม่มีกิจกรรมล่วงหน้า</div>`;
   renderHomeShoppingPreview();
@@ -996,7 +1008,7 @@ function viewedDate(){
 }
 function navMonth(delta){
   calMonthOffset += delta;
-  renderCalGrid(); renderMoodGrid();
+  renderCalGrid(); renderMoodGrid(); renderCalList();
 }
 function buildMonthShell(vd){
   const y = vd.getFullYear(), mo = vd.getMonth();
@@ -1058,7 +1070,13 @@ function renderMoodGrid(){
   document.getElementById('calMoodGrid').innerHTML = out;
 }
 function renderCalList(){
-  const events = visibleEvents().slice().sort((a,b)=>a.event_date.localeCompare(b.event_date));
+  const vd = viewedDate();
+  const y = vd.getFullYear(), mo = vd.getMonth();
+  const label = document.getElementById('calListMonthLabel');
+  if(label) label.textContent = vd.toLocaleDateString('en-US',{month:'short', year:'numeric'});
+  const events = visibleEvents()
+    .filter(e => e.event_date.slice(0,4)===String(y) && Number(e.event_date.slice(5,7))===mo+1)
+    .slice().sort((a,b)=>a.event_date.localeCompare(b.event_date));
   const byDate = {};
   events.forEach(e=>{ (byDate[e.event_date] = byDate[e.event_date]||[]).push(e); });
   const dates = Object.keys(byDate).sort();
@@ -1067,11 +1085,18 @@ function renderCalList(){
       <div class="cal-day-header">${dt}</div>
       ${byDate[dt].map(e=>`
         <div class="cal-event-row">
-          <div class="dot-ic">📌</div>
-          <div class="item-name">${e.title}</div>
+          <div class="dot-ic">${e.child_id?'🩺':'📌'}</div>
+          <div class="item-name">${e.title}${e.child_id?' · '+(childNameById(e.child_id)||''):''}</div>
           <div class="cal-event-tag" style="color:${e.visibility==='personal'?'#2A7A93':'var(--maroon)'}; background:${e.visibility==='personal'?'#EAF7FC':'var(--pink-soft)'};">${e.visibility==='personal'?'Personal':'Shared'}</div>
+          <button class="fin-icon-btn" onclick="deleteEvent('${e.id}')">🗑️</button>
         </div>`).join('')}
-    </div>`).join('') : `<div class="empty-note">ยังไม่มีนัดหมาย</div>`;
+    </div>`).join('') : `<div class="empty-note">ไม่มีนัดหมายในเดือนนี้</div>`;
+}
+async function deleteEvent(id){
+  if(!confirm('ลบนัดหมายนี้?')) return;
+  const { error } = await sb.from('calendar_events').delete().eq('id', id);
+  if(error){ alert('ลบไม่สำเร็จ: ' + error.message); console.error(error); return; }
+  await loadCalendar();
 }
 function openAddEventModal(){
   document.getElementById('newEventTitle').value = '';
@@ -1130,19 +1155,31 @@ function initFinSelects(){
   mSel.value = finViewMonth;
   ySel.value = finViewYear;
 }
+function setFinMode(mode){
+  finMode = mode;
+  document.getElementById('finPillShared').className = 'pill' + (mode==='shared' ? ' on-shared' : '');
+  document.getElementById('finPillPersonal').className = 'pill' + (mode==='personal' ? ' on-personal' : '');
+  renderFinance();
+}
 function onFinDateChange(){
   finViewMonth = Number(document.getElementById('finMonthSel').value);
   finViewYear = Number(document.getElementById('finYearSel').value);
   renderFinance();
 }
+function financeItemsForMode(mode){
+  return mode==='shared'
+    ? financeItems.filter(f => (f.visibility||'shared')==='shared')
+    : financeItems.filter(f => f.created_by===currentUser.id && f.visibility==='personal');
+}
 function itemsForViewMonth(){
   const ym = `${finViewYear}-${String(finViewMonth).padStart(2,'0')}`;
-  return financeItems.filter(f => (f.entry_date||'').slice(0,7)===ym);
+  return financeItemsForMode(finMode).filter(f => (f.entry_date||'').slice(0,7)===ym);
 }
-function computeFinBalance(){
+function computeFinBalance(mode = finMode){
   // Cumulative across ALL months (carries forward previous months' leftover balance)
-  const totalIncome = financeItems.filter(f=>f.type==='income').reduce((a,b)=>a+Number(b.amount),0);
-  const totalSpend = financeItems.filter(f=>f.type==='spending').reduce((a,b)=>a+Number(b.amount),0);
+  const items = financeItemsForMode(mode);
+  const totalIncome = items.filter(f=>f.type==='income').reduce((a,b)=>a+Number(b.amount),0);
+  const totalSpend = items.filter(f=>f.type==='spending').reduce((a,b)=>a+Number(b.amount),0);
   const remaining = totalIncome - totalSpend;
   const pct = totalIncome ? Math.round((remaining/totalIncome)*100) : 0;
   return { totalIncome, totalSpend, remaining, pct };
@@ -1181,7 +1218,7 @@ function renderFinance(){
   document.getElementById('finSpendTotal').textContent = '฿ ' + spendTotal.toLocaleString();
 
   const today = todayStr();
-  const todayItems = financeItems.filter(f=>f.entry_date===today);
+  const todayItems = financeItemsForMode(finMode).filter(f=>f.entry_date===today);
   const todaySpend = todayItems.filter(f=>f.type==='spending').reduce((a,b)=>a+Number(b.amount),0);
   const todayIncome = todayItems.filter(f=>f.type==='income').reduce((a,b)=>a+Number(b.amount),0);
   document.getElementById('finTodaySpend').textContent = '฿ ' + todaySpend.toLocaleString();
@@ -1198,16 +1235,18 @@ function renderFinance(){
 
   const spendCatTotals = {};
   spend.forEach(s=>{ spendCatTotals[s.category] = (spendCatTotals[s.category]||0) + Number(s.amount); });
+  const expCatColors = currentExpenseCatColors();
+  const expCatMax = currentExpenseCatMax();
   document.getElementById('finSpendSummary').innerHTML = Object.keys(spendCatTotals).map(cat=>{
     const total = spendCatTotals[cat];
-    const max = expenseCatMax[cat] || total || 1;
+    const max = expCatMax[cat] || total || 1;
     const usedPct = Math.round((total/max)*100);
     const barPct = Math.min(100, usedPct);
     const over = total > max;
     const statusTxt = over ? `เกินงบ ${usedPct-100}%` : `เหลืออีก ${100-usedPct}%`;
     return `<div class="fin-summary-item"><div class="row1"><span>${finCatIcons[cat]||'🧾'} ${cat}</span><span>฿${total.toLocaleString()}</span></div>
       <div class="fin-score" style="${over?'color:var(--maroon);':''}">฿${total.toLocaleString()} / ฿${max.toLocaleString()} · ใช้ ${usedPct}% · ${statusTxt}</div>
-      <div class="bar-bg"><div class="bar-fill" style="width:${barPct}%; background:${over?'var(--maroon)':(expenseCatColors[cat]||'var(--maroon)')};"></div></div></div>`;
+      <div class="bar-bg"><div class="bar-fill" style="width:${barPct}%; background:${over?'var(--maroon)':(expCatColors[cat]||'var(--maroon)')};"></div></div></div>`;
   }).join('') || `<div class="empty-note">ยังไม่มีรายจ่าย</div>`;
 
   // ----- Daily transaction list (bottom, scrollable) -----
@@ -1233,9 +1272,10 @@ function renderFinance(){
   renderFinChart(income, spend);
 }
 function renderFinChart(income, spend){
+  const expCatColors = currentExpenseCatColors();
   const cats = [
     ...Object.keys(incomeCatColors).map(c=>({cat:c, color:incomeCatColors[c], amt: income.filter(i=>i.category===c).reduce((a,b)=>a+Number(b.amount),0)})),
-    ...Object.keys(expenseCatColors).map(c=>({cat:c, color:expenseCatColors[c], amt: spend.filter(i=>i.category===c).reduce((a,b)=>a+Number(b.amount),0)})),
+    ...Object.keys(expCatColors).map(c=>({cat:c, color:expCatColors[c], amt: spend.filter(i=>i.category===c).reduce((a,b)=>a+Number(b.amount),0)})),
   ];
   const max = Math.max(1, ...cats.map(c=>c.amt));
   document.getElementById('finChart').innerHTML = cats.map(c=>{
@@ -1250,7 +1290,7 @@ function renderFinChart(income, spend){
 function openAddFinanceModal(type){
   finEditId = null;
   finAddType = type;
-  finAddCategory = type==='income' ? 'เงินเดือน' : 'Food';
+  finAddCategory = type==='income' ? 'เงินเดือน' : Object.keys(currentExpenseCatColors())[0];
   document.getElementById('finModalTitle').textContent = type==='income' ? 'เพิ่มรายรับ' : 'เพิ่มรายจ่าย';
   document.getElementById('finAmountInput').value = '';
   renderFinCatChips();
@@ -1278,7 +1318,7 @@ async function deleteFinanceItem(id){
   await loadFinance();
 }
 function renderFinCatChips(){
-  const map = finAddType==='income' ? incomeCatColors : expenseCatColors;
+  const map = finAddType==='income' ? incomeCatColors : currentExpenseCatColors();
   document.getElementById('finCatRow').innerHTML = Object.keys(map).map(c=>{
     const active = finAddCategory===c;
     return `<div class="chip ${active?'active':''}" style="${active?`background:${map[c]}; border-color:${map[c]};`:''}" onclick="pickFinCat('${c}')">${finCatIcons[c]||''} ${c}</div>`;
@@ -1295,7 +1335,7 @@ async function submitFinanceItem(){
   } else {
     ({ error } = await sb.from('finance_items').insert({
       household_id: currentHouseholdId, type: finAddType, category: finAddCategory, amount, name: finAddCategory,
-      entry_date: todayStr(), created_by: currentUser.id
+      entry_date: todayStr(), created_by: currentUser.id, visibility: finMode
     }));
   }
   if(error){
@@ -1527,6 +1567,7 @@ function addChild(){
 function openChildDetail(id){
   currentChildId = id;
   childPhotoFile = null;
+  childCalMonthOffset = 0;
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('screen-child-detail').classList.add('active');
   renderNav('child');
@@ -1662,7 +1703,7 @@ function childViewedDate(){
 }
 function navChildCalMonth(delta){
   childCalMonthOffset += delta;
-  renderChildCalGrid();
+  renderChildCalGrid(); renderChildCalList();
 }
 function renderChildCalGrid(){
   if(!currentChildId) return;
@@ -1683,7 +1724,11 @@ function renderChildCalGrid(){
 }
 function renderChildCalList(){
   if(!currentChildId) return;
-  const events = childEvents();
+  const vd = childViewedDate();
+  const y = vd.getFullYear(), mo = vd.getMonth();
+  const label = document.getElementById('childCalListMonthLabel');
+  if(label) label.textContent = vd.toLocaleDateString('en-US',{month:'short', year:'numeric'});
+  const events = childEvents().filter(e => e.event_date.slice(0,4)===String(y) && Number(e.event_date.slice(5,7))===mo+1);
   const byDate = {};
   events.forEach(e=>{ (byDate[e.event_date] = byDate[e.event_date]||[]).push(e); });
   const dates = Object.keys(byDate).sort();
@@ -1696,7 +1741,7 @@ function renderChildCalList(){
           <div class="item-name">${e.title}</div>
           <button class="fin-icon-btn" onclick="deleteChildEvent('${e.id}')">🗑️</button>
         </div>`).join('')}
-    </div>`).join('') : `<div class="empty-note">ยังไม่มีนัดหมาย</div>`;
+    </div>`).join('') : `<div class="empty-note">ไม่มีนัดหมายในเดือนนี้</div>`;
 }
 function setChildDetailTab(t){
   document.querySelectorAll('#childDetailTabs button').forEach(b=>b.classList.toggle('active', b.dataset.t===t));
