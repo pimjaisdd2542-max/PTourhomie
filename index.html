@@ -247,8 +247,10 @@
   .modal-box.wide{max-width:340px; max-height:85vh; overflow-y:auto;}
 
   /* ===== Child / profile ===== */
-  .child-card{display:flex; border:1.5px solid var(--line); border-radius:18px; overflow:hidden; margin-bottom:14px; background:#fff;}
-  .child-pic{width:96px; background:var(--pink-soft); display:flex; align-items:center; justify-content:center; font-size:26px; flex-shrink:0;}
+  .child-card{display:flex; border:1.5px solid var(--line); border-radius:18px; overflow:hidden; margin-bottom:14px; background:#fff; cursor:pointer; transition:.15s;}
+  .child-card:hover{border-color:var(--pink);}
+  .child-pic{width:96px; background:var(--pink-soft); display:flex; align-items:center; justify-content:center; font-size:26px; flex-shrink:0; overflow:hidden;}
+  .child-pic img{width:100%; height:100%; object-fit:cover;}
   .child-info{padding:12px 14px; flex:1;}
   .child-info .name-row{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;}
   .child-info .name-row .nm{font-weight:800; font-family:'Baloo 2'; font-size:14.5px;}
@@ -256,6 +258,17 @@
   .gender.f{background:#FBE1EA; color:#C24B7C;}
   .gender.m{background:#DDEBFB; color:#3C77B8;}
   .child-info .meta{font-size:12px; color:var(--muted); line-height:1.9;}
+  .child-info .trip-view-detail{display:inline-block; margin-top:6px;}
+
+  .child-photo-picker{width:100%; height:150px; border-radius:18px; background:var(--pink-soft); border:1.5px dashed var(--pink); display:flex; align-items:center; justify-content:center; cursor:pointer; margin-bottom:14px; overflow:hidden;}
+  .child-photo-picker img{width:100%; height:100%; object-fit:cover;}
+  .child-photo-picker span{font-size:13px; font-weight:700; color:var(--maroon);}
+  .child-age-preview{font-size:12.5px; color:var(--muted); font-weight:700; margin:-4px 0 14px 6px;}
+  .child-age-preview strong{color:var(--maroon);}
+  .child-weight-current{font-size:13px; font-weight:700; color:var(--text); margin-bottom:10px;}
+  .child-weight-current strong{color:var(--maroon); font-family:'Baloo 2'; font-size:15px;}
+  .child-weight-row{display:flex; justify-content:space-between; align-items:center; border:1.5px solid var(--line); border-radius:12px; padding:9px 12px; margin-bottom:8px; font-size:12.5px; font-weight:700;}
+  .child-weight-row span:first-child{color:var(--muted); font-weight:600;}
 
   .profile-top{display:flex; align-items:center; gap:16px; margin-bottom:22px;}
   .avatar{width:78px; height:78px; border-radius:24px; background:var(--pink-soft); display:flex; align-items:center; justify-content:center; font-size:30px;}
@@ -533,6 +546,85 @@
       <div id="childList"></div>
     </section>
 
+    <!-- CHILD DETAIL -->
+    <section class="screen" id="screen-child-detail">
+      <div class="topbar">
+        <button class="icon-btn" onclick="goScreen('child')">←</button>
+        <h1 id="childDetailName">เพิ่มข้อมูลลูก</h1>
+        <button class="icon-btn" onclick="goScreen('home')">🏠</button>
+      </div>
+
+      <div class="tab-row" id="childDetailTabs">
+        <button class="active" data-t="db" onclick="setChildDetailTab('db')">🗂️ Data base</button>
+        <button data-t="calendar" id="childCalTabBtn" onclick="setChildDetailTab('calendar')">📅 Calendar</button>
+      </div>
+
+      <!-- DB TAB -->
+      <div id="childTab-db">
+        <div class="child-photo-picker" onclick="document.getElementById('childPhotoInput').click()">
+          <img id="childPhotoPreview" src="" style="display:none;">
+          <span id="childPhotoPlaceholder">📷 เพิ่มรูปภาพ</span>
+        </div>
+        <input type="file" id="childPhotoInput" accept="image/*" style="display:none;" onchange="handleChildPhotoSelect(event)">
+
+        <div class="field"><span class="ic">👶</span><input type="text" id="childNameInput" placeholder="ชื่อ"></div>
+        <div class="field"><span class="ic">🚻</span>
+          <select id="childGenderInput" style="border:none; background:transparent; flex:1; font-family:'Nunito'; font-size:14.5px; color:var(--text);">
+            <option value="f">Female</option><option value="m">Male</option>
+          </select>
+        </div>
+        <div class="field"><span class="ic">🎂</span><input type="date" id="childBirthdayInput" onchange="updateChildAgePreview()"></div>
+        <div class="child-age-preview">Age: <strong id="childAgePreview">-</strong></div>
+
+        <div id="childWeightRow">
+          <div class="add-link-row"><h3>น้ำหนัก (Weight)</h3><span class="add-link" onclick="openAddWeightModal()">+ Add record</span></div>
+          <div class="child-weight-current">น้ำหนักปัจจุบัน: <strong id="childCurrentWeight">- กก.</strong></div>
+          <div id="childWeightHistory"></div>
+        </div>
+
+        <button class="btn-primary" onclick="submitChildDb()" style="margin-top:16px;">บันทึกข้อมูล</button>
+        <div class="modal-delete" id="childDeleteBtn" style="display:none;" onclick="deleteChildFromDetail()">🗑️ ลบข้อมูลลูกคนนี้</div>
+      </div>
+
+      <!-- CALENDAR TAB -->
+      <div id="childTab-calendar" style="display:none;">
+        <div class="tab-row">
+          <button class="active" data-ct="month" onclick="setChildCalTab('month',this)">▦ Month</button>
+          <button data-ct="list" onclick="setChildCalTab('list',this)">☰ List</button>
+        </div>
+        <div id="childCalView-month">
+          <div class="cal-head"><button class="cal-nav" onclick="navChildCalMonth(-1)">‹</button><strong id="childCalMonthLabel">-</strong><button class="cal-nav" onclick="navChildCalMonth(1)">›</button></div>
+          <div class="grid7" id="childCalGrid"></div>
+        </div>
+        <div id="childCalView-list" style="display:none;">
+          <button class="add-btn" onclick="openAddChildEventModal()" style="margin-bottom:16px;">+ Add Appointment</button>
+          <div id="childCalListBox"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ADD WEIGHT MODAL -->
+    <div class="modal-overlay" id="addWeightModal">
+      <div class="modal-box">
+        <h3>บันทึกน้ำหนัก</h3>
+        <div class="field"><span class="ic">⚖️</span><input type="number" id="newWeightInput" placeholder="น้ำหนัก (กก.)"></div>
+        <div class="field"><input type="date" id="newWeightDate"></div>
+        <button class="btn-primary" onclick="submitWeight()">บันทึก</button>
+        <div class="modal-cancel" onclick="closeAddWeightModal()">ยกเลิก</div>
+      </div>
+    </div>
+
+    <!-- ADD CHILD EVENT MODAL -->
+    <div class="modal-overlay" id="addChildEventModal">
+      <div class="modal-box">
+        <h3>เพิ่มนัดหมาย</h3>
+        <div class="field"><input type="text" id="newChildEventTitle" placeholder="เช่น นัดหมอฟัน..."></div>
+        <div class="field"><input type="date" id="newChildEventDate"></div>
+        <button class="btn-primary" onclick="submitNewChildEvent()">+ เพิ่มนัดหมาย</button>
+        <div class="modal-cancel" onclick="closeAddChildEventModal()">ยกเลิก</div>
+      </div>
+    </div>
+
     <!-- PROFILE -->
     <section class="screen" id="screen-profile">
       <div class="topbar"><h1>Profile</h1><button class="icon-btn" onclick="handleSignOut()">↩️</button></div>
@@ -589,7 +681,8 @@ if (SUPABASE_URL.includes('YOUR-PROJECT') || SUPABASE_ANON_KEY.includes('YOUR-AN
 
 /* ---------- app state ---------- */
 let currentUser = null, currentProfile = null, partnerProfile = null, currentHouseholdId = null;
-let shoppingData = [], trips = [], children = [], financeItems = [], calendarEvents = [], monthMoods = [];
+let shoppingData = [], trips = [], children = [], financeItems = [], calendarEvents = [], monthMoods = [], childWeights = [];
+let currentChildId = null, childCalMonthOffset = 0, childPhotoFile = null;
 let shopFilter = 'All', selectedMood = null, calMode = 'shared', calTab = 'month', calMonthOffset = 0;
 let finViewYear = new Date().getFullYear(), finViewMonth = new Date().getMonth()+1;
 let finAddType = 'income', finAddCategory = 'เงินเดือน', finEditId = null;
@@ -775,12 +868,16 @@ function renderHomeStats(){
   const todayBox = document.getElementById('homeToday');
   const upcoming = homeVisibleEvents.filter(e=>e.event_date >= todayStr()).slice(0,1);
   todayBox.innerHTML = upcoming.length ? upcoming.map(e=>`
-    <div class="list-item"><div class="dot-ic">📌</div><div class="item-name">${e.title}</div></div>`).join('')
+    <div class="list-item"><div class="dot-ic">${e.child_id?'🩺':'📌'}</div><div class="item-name">${e.title}${e.child_id?' · '+(childNameById(e.child_id)||''):''}</div></div>`).join('')
     : `<div class="empty-note">ยังไม่มีนัดหมายวันนี้</div>`;
   document.getElementById('homeEvents').innerHTML = homeVisibleEvents.slice(0,3).map(e=>`
-    <div class="list-item"><div class="date-chip">${e.event_date.slice(8,10)}</div><div class="item-name">${e.title}</div></div>`).join('')
+    <div class="list-item"><div class="date-chip">${e.event_date.slice(8,10)}</div><div class="item-name">${e.title}${e.child_id?' · 🩺 '+(childNameById(e.child_id)||''):''}</div></div>`).join('')
     || `<div class="empty-note">ยังไม่มีกิจกรรมล่วงหน้า</div>`;
   renderHomeShoppingPreview();
+}
+function childNameById(id){
+  const c = children.find(x=>String(x.id)===String(id));
+  return c ? c.name : '';
 }
 function renderHomeShoppingPreview(){
   const box = document.getElementById('homeShoppingPreview');
@@ -988,11 +1085,13 @@ async function submitNewEvent(){
   const title = document.getElementById('newEventTitle').value.trim();
   const event_date = document.getElementById('newEventDate').value;
   if(!title || !event_date) return;
-  await sb.from('calendar_events').insert({
+  const { error } = await sb.from('calendar_events').insert({
     household_id: currentHouseholdId, title, event_date,
     created_by: currentUser.id, visibility: calMode
   });
+  if(error){ alert('บันทึกไม่สำเร็จ: ' + error.message); console.error(error); return; }
   closeAddEventModal();
+  await loadCalendar();
 }
 function setCalMode(mode){
   calMode = mode;
@@ -1381,29 +1480,266 @@ async function deleteTripFromModal(){
 async function loadChildren(){
   const { data } = await sb.from('children').select('*').eq('household_id', currentHouseholdId);
   children = data || [];
+  const { data: w } = await sb.from('child_weights').select('*').eq('household_id', currentHouseholdId).order('log_date', {ascending:false});
+  childWeights = w || [];
   renderChildren();
+  if(document.getElementById('screen-child-detail').classList.contains('active')) renderChildDetail();
   renderHomeStats();
+}
+function calcAge(birthday){
+  if(!birthday) return null;
+  const b = new Date(birthday), now = new Date();
+  let age = now.getFullYear() - b.getFullYear();
+  const m = now.getMonth() - b.getMonth();
+  if(m < 0 || (m===0 && now.getDate() < b.getDate())) age--;
+  return age >= 0 ? age : null;
+}
+function weightsForChild(childId){
+  return childWeights.filter(w=>String(w.child_id)===String(childId)).slice().sort((a,b)=>b.log_date.localeCompare(a.log_date));
+}
+function currentWeightFor(childId){
+  const list = weightsForChild(childId);
+  if(list.length) return list[0].weight;
+  const c = children.find(x=>String(x.id)===String(childId));
+  return c?.weight || null;
 }
 function renderChildren(){
   const q = (document.getElementById('childSearch')?.value || '').toLowerCase();
   const list = children.filter(c=>c.name.toLowerCase().includes(q));
-  document.getElementById('childList').innerHTML = list.map(c=>`
-    <div class="child-card">
-      <div class="child-pic">${c.gender==='f'?'👧':'👦'}</div>
+  document.getElementById('childList').innerHTML = list.map(c=>{
+    const age = calcAge(c.birthday);
+    const weight = currentWeightFor(c.id);
+    return `<div class="child-card" onclick="openChildDetail('${c.id}')">
+      <div class="child-pic">${c.photo_url ? `<img src="${c.photo_url}" alt="${c.name}">` : (c.gender==='f'?'👧':'👦')}</div>
       <div class="child-info">
         <div class="name-row"><span class="nm">${c.name}</span><span class="gender ${c.gender}">${c.gender==='f'?'Female':'Male'}</span></div>
-        <div class="meta">Age: ${c.age||'-'}<br>Weight: ${c.weight||'-'}<br>Birthday: ${c.birthday||'-'}</div>
+        <div class="meta">Age: ${age!==null?age:'-'}<br>Weight: ${weight?weight+' กก.':'-'}<br>Birthday: ${c.birthday||'-'}</div>
+        <span class="trip-view-detail">View All →</span>
       </div>
-    </div>`).join('') || `<div class="empty-note">ยังไม่มีข้อมูลลูก</div>`;
+    </div>`;
+  }).join('') || `<div class="empty-note">ยังไม่มีข้อมูลลูก</div>`;
 }
-async function addChild(){
-  const name = prompt('ชื่อลูก:');
-  if(!name) return;
-  const gender = (prompt('เพศ (f = female / m = male):', 'f') || 'f').toLowerCase();
-  const age = prompt('อายุ:', '') || '';
-  const weight = prompt('น้ำหนัก:', '') || '';
-  const birthday = prompt('วันเกิด (YYYY-MM-DD):', '') || null;
-  await sb.from('children').insert({ household_id: currentHouseholdId, name, gender: gender==='m'?'m':'f', age, weight, birthday, created_by: currentUser.id });
+function addChild(){
+  openChildDetail(null);
+}
+
+/* ---------- CHILD DETAIL ---------- */
+function openChildDetail(id){
+  currentChildId = id;
+  childPhotoFile = null;
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-child-detail').classList.add('active');
+  renderNav('child');
+  document.querySelectorAll('#childDetailTabs button').forEach(b=>b.classList.toggle('active', b.dataset.t==='db'));
+  document.getElementById('childTab-db').style.display = '';
+  document.getElementById('childTab-calendar').style.display = 'none';
+  document.getElementById('childCalTabBtn').style.display = id ? '' : 'none';
+  renderChildDetail();
+}
+function renderChildDetail(){
+  const c = currentChildId ? children.find(x=>String(x.id)===String(currentChildId)) : null;
+  document.getElementById('childDetailName').textContent = c ? c.name : 'เพิ่มข้อมูลลูก';
+  document.getElementById('childNameInput').value = c?.name || '';
+  document.getElementById('childGenderInput').value = c?.gender || 'f';
+  document.getElementById('childBirthdayInput').value = c?.birthday || '';
+  updateChildAgePreview();
+
+  const preview = document.getElementById('childPhotoPreview');
+  const placeholder = document.getElementById('childPhotoPlaceholder');
+  if(c?.photo_url){ preview.src = c.photo_url; preview.style.display='block'; placeholder.style.display='none'; }
+  else { preview.style.display='none'; placeholder.style.display='flex'; preview.src=''; }
+
+  const weightRow = document.getElementById('childWeightRow');
+  if(c){
+    weightRow.style.display = '';
+    const cw = currentWeightFor(c.id);
+    document.getElementById('childCurrentWeight').textContent = cw ? cw+' กก.' : '- กก.';
+    document.getElementById('childWeightHistory').innerHTML = weightsForChild(c.id).map(w=>`
+      <div class="child-weight-row"><span>${formatDateTH(w.log_date)}</span><span>${w.weight} กก.</span><button class="fin-icon-btn" onclick="deleteWeight('${w.id}')">🗑️</button></div>
+    `).join('') || `<div class="empty-note">ยังไม่มีประวัติน้ำหนัก</div>`;
+  } else {
+    weightRow.style.display = 'none';
+  }
+  document.getElementById('childDeleteBtn').style.display = c ? 'block' : 'none';
+
+  if(c){ renderChildCalGrid(); renderChildCalList(); }
+}
+function updateChildAgePreview(){
+  const bday = document.getElementById('childBirthdayInput').value;
+  const age = calcAge(bday);
+  document.getElementById('childAgePreview').textContent = age!==null ? age+' ปี' : '-';
+}
+function handleChildPhotoSelect(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  childPhotoFile = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const preview = document.getElementById('childPhotoPreview');
+    preview.src = ev.target.result;
+    preview.style.display = 'block';
+    document.getElementById('childPhotoPlaceholder').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+async function submitChildDb(){
+  const name = document.getElementById('childNameInput').value.trim();
+  const gender = document.getElementById('childGenderInput').value;
+  const birthday = document.getElementById('childBirthdayInput').value || null;
+  if(!name){ alert('กรุณากรอกชื่อ'); return; }
+  const payload = { name, gender, birthday };
+  let childId = currentChildId;
+  let error;
+  if(childId){
+    ({ error } = await sb.from('children').update(payload).eq('id', childId));
+  } else {
+    const { data, error: insErr } = await sb.from('children')
+      .insert({ household_id: currentHouseholdId, created_by: currentUser.id, ...payload })
+      .select().single();
+    error = insErr;
+    if(!error && data) childId = data.id;
+  }
+  if(error){ alert('บันทึกไม่สำเร็จ: ' + error.message); console.error(error); return; }
+
+  if(childPhotoFile && childId){
+    const ext = (childPhotoFile.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `${currentHouseholdId}/${childId}.${ext}`;
+    const { error: upErr } = await sb.storage.from('child-photos').upload(path, childPhotoFile, { upsert: true });
+    if(upErr){
+      alert('บันทึกข้อมูลสำเร็จ แต่อัปโหลดรูปไม่สำเร็จ: ' + upErr.message);
+    } else {
+      const { data: pub } = sb.storage.from('child-photos').getPublicUrl(path);
+      await sb.from('children').update({ photo_url: pub.publicUrl }).eq('id', childId);
+    }
+  }
+  currentChildId = childId;
+  childPhotoFile = null;
+  document.getElementById('childCalTabBtn').style.display = '';
+  await loadChildren();
+  renderChildDetail();
+}
+async function deleteChildFromDetail(){
+  if(!currentChildId) return;
+  if(!confirm('ลบข้อมูลลูกคนนี้ทั้งหมด? (รวมถึงประวัติน้ำหนักและนัดหมาย)')) return;
+  const { error } = await sb.from('children').delete().eq('id', currentChildId);
+  if(error){ alert('ลบไม่สำเร็จ: ' + error.message); console.error(error); return; }
+  currentChildId = null;
+  goScreen('child');
+  await loadChildren();
+}
+
+/* ---------- CHILD WEIGHT ---------- */
+function openAddWeightModal(){
+  if(!currentChildId){ alert('กรุณาบันทึกข้อมูลลูกก่อน แล้วค่อยเพิ่มน้ำหนัก'); return; }
+  document.getElementById('newWeightInput').value = '';
+  document.getElementById('newWeightDate').value = todayStr();
+  document.getElementById('addWeightModal').classList.add('show');
+}
+function closeAddWeightModal(){ document.getElementById('addWeightModal').classList.remove('show'); }
+async function submitWeight(){
+  const weight = Number(document.getElementById('newWeightInput').value);
+  const log_date = document.getElementById('newWeightDate').value || todayStr();
+  if(!weight){ alert('กรุณาระบุน้ำหนัก'); return; }
+  const { error } = await sb.from('child_weights').insert({ household_id: currentHouseholdId, child_id: currentChildId, weight, log_date, created_by: currentUser.id });
+  if(error){ alert('บันทึกไม่สำเร็จ: ' + error.message); console.error(error); return; }
+  closeAddWeightModal();
+  await loadChildren();
+}
+async function deleteWeight(id){
+  if(!confirm('ลบประวัติน้ำหนักนี้?')) return;
+  const { error } = await sb.from('child_weights').delete().eq('id', id);
+  if(error){ alert('ลบไม่สำเร็จ: ' + error.message); console.error(error); return; }
+  await loadChildren();
+}
+
+/* ---------- CHILD CALENDAR (per-child Month / List) ---------- */
+function childEvents(){
+  return calendarEvents.filter(e=>String(e.child_id)===String(currentChildId)).slice().sort((a,b)=>a.event_date.localeCompare(b.event_date));
+}
+function childViewedDate(){
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth()+childCalMonthOffset, 1);
+}
+function navChildCalMonth(delta){
+  childCalMonthOffset += delta;
+  renderChildCalGrid();
+}
+function renderChildCalGrid(){
+  if(!currentChildId) return;
+  const now = new Date();
+  const vd = childViewedDate();
+  const isCurMonth = vd.getFullYear()===now.getFullYear() && vd.getMonth()===now.getMonth();
+  document.getElementById('childCalMonthLabel').textContent = vd.toLocaleDateString('en-US',{month:'short', year:'numeric'});
+  const {html, daysInMonth, y, mo} = buildMonthShell(vd);
+  let out = html;
+  const eventDays = new Set(
+    childEvents().filter(e => e.event_date.slice(0,4)===String(y) && Number(e.event_date.slice(5,7))===mo+1)
+      .map(e=>Number(e.event_date.slice(8,10)))
+  );
+  for(let d=1; d<=daysInMonth; d++){
+    out += `<div class="day ${isCurMonth && d===now.getDate()?'today':''}">${d}${eventDays.has(d)?'<div class="evt-dot"></div>':''}</div>`;
+  }
+  document.getElementById('childCalGrid').innerHTML = out;
+}
+function renderChildCalList(){
+  if(!currentChildId) return;
+  const events = childEvents();
+  const byDate = {};
+  events.forEach(e=>{ (byDate[e.event_date] = byDate[e.event_date]||[]).push(e); });
+  const dates = Object.keys(byDate).sort();
+  document.getElementById('childCalListBox').innerHTML = dates.length ? dates.map(dt=>`
+    <div class="cal-day-group">
+      <div class="cal-day-header">${dt}</div>
+      ${byDate[dt].map(e=>`
+        <div class="cal-event-row">
+          <div class="dot-ic">🩺</div>
+          <div class="item-name">${e.title}</div>
+          <button class="fin-icon-btn" onclick="deleteChildEvent('${e.id}')">🗑️</button>
+        </div>`).join('')}
+    </div>`).join('') : `<div class="empty-note">ยังไม่มีนัดหมาย</div>`;
+}
+function setChildDetailTab(t){
+  document.querySelectorAll('#childDetailTabs button').forEach(b=>b.classList.toggle('active', b.dataset.t===t));
+  document.getElementById('childTab-db').style.display = t==='db' ? '' : 'none';
+  document.getElementById('childTab-calendar').style.display = t==='calendar' ? '' : 'none';
+  if(t==='calendar'){
+    document.querySelectorAll('#childTab-calendar .tab-row button').forEach(b=>b.classList.toggle('active', b.dataset.ct==='month'));
+    document.getElementById('childCalView-month').style.display = '';
+    document.getElementById('childCalView-list').style.display = 'none';
+    renderChildCalGrid(); renderChildCalList();
+  }
+}
+function setChildCalTab(t, btn){
+  document.querySelectorAll('#childTab-calendar .tab-row button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('childCalView-month').style.display = t==='month' ? '' : 'none';
+  document.getElementById('childCalView-list').style.display = t==='list' ? '' : 'none';
+}
+function openAddChildEventModal(){
+  document.getElementById('newChildEventTitle').value = '';
+  document.getElementById('newChildEventDate').value = todayStr();
+  document.getElementById('addChildEventModal').classList.add('show');
+}
+function closeAddChildEventModal(){ document.getElementById('addChildEventModal').classList.remove('show'); }
+async function submitNewChildEvent(){
+  const title = document.getElementById('newChildEventTitle').value.trim();
+  const event_date = document.getElementById('newChildEventDate').value;
+  if(!title || !event_date) return;
+  const { error } = await sb.from('calendar_events').insert({
+    household_id: currentHouseholdId, title, event_date,
+    created_by: currentUser.id, visibility: 'shared', child_id: currentChildId
+  });
+  if(error){ alert('บันทึกไม่สำเร็จ: ' + error.message); console.error(error); return; }
+  closeAddChildEventModal();
+  await loadCalendar();
+  renderChildCalGrid(); renderChildCalList();
+}
+async function deleteChildEvent(id){
+  if(!confirm('ลบนัดหมายนี้?')) return;
+  const { error } = await sb.from('calendar_events').delete().eq('id', id);
+  if(error){ alert('ลบไม่สำเร็จ: ' + error.message); console.error(error); return; }
+  await loadCalendar();
+  renderChildCalGrid(); renderChildCalList();
 }
 
 /* ---------- PROFILE ---------- */
