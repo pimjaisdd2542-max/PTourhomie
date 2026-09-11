@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Our Homie — จัดการบ้านของเราด้วยกัน</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#7A1B2B">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Our Homie">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -660,6 +666,14 @@
         <div class="em">💌</div>
         <div class="t"><div>ยังไม่มีคู่ผูกด้วย</div><div>รอคู่รักสมัครด้วยอีเมลที่ตรงกัน</div></div>
       </div>
+
+      <p class="plabel" style="margin-top:22px;">NOTIFICATIONS</p>
+      <div class="partner-box" id="notifStatusBox">
+        <div class="em">🔔</div>
+        <div class="t"><div id="notifStatusTitle">ยังไม่ได้เปิดการแจ้งเตือน</div><div id="notifStatusSub">เปิดเพื่อรับแจ้งเตือนนัดหมายล่วงหน้า 1 วัน และวันนี้</div></div>
+      </div>
+      <button class="btn-primary" id="notifBtn" onclick="enablePushNotifications()" style="margin-top:12px;">🔔 เปิดการแจ้งเตือน</button>
+      <p class="hint" id="notifIOSHint" style="display:none;">📱 บน iPhone: กดปุ่มแชร์ใน Safari แล้วเลือก "เพิ่มลงในหน้าจอโฮม" ก่อน แล้วเปิดแอปจากไอคอนนั้นถึงจะเปิดแจ้งเตือนได้</p>
     </section>
 
     <!-- BOTTOM NAV -->
@@ -690,6 +704,125 @@ if (SUPABASE_URL.includes('YOUR-PROJECT') || SUPABASE_ANON_KEY.includes('YOUR-AN
   });
 } else {
   sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+/* =====================================================================
+   PUSH NOTIFICATIONS
+   VAPID public key นี้ต้องตรงกับ private key ที่ตั้งใน Supabase Edge
+   Function secrets (VAPID_PRIVATE_KEY) — ดูวิธี generate ใน README
+   ===================================================================== */
+const VAPID_PUBLIC_KEY = 'BA3fukPiO2RswYJeCOb_hdMTqEcL5dakPbNgTjsQ37wwyDfRfP9jponhn3_4B3ZAOqQUpRtEPPVcmlt3dsNxoK4';
+
+function urlBase64ToUint8Array(base64String){
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+let swRegistration = null;
+async function registerServiceWorker(){
+  if(!('serviceWorker' in navigator)) return null;
+  try{
+    swRegistration = await navigator.serviceWorker.register('sw.js');
+    return swRegistration;
+  }catch(e){
+    console.error('Service worker registration failed:', e);
+    return null;
+  }
+}
+// ลงทะเบียน service worker ทันทีที่โหลดหน้า (ไม่ต้องรอ login) เพื่อให้ PWA ติดตั้งได้
+if('serviceWorker' in navigator){
+  window.addEventListener('load', registerServiceWorker);
+}
+
+function isIOS(){
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+function isStandalonePWA(){
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+async function enablePushNotifications(){
+  if(!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)){
+    alert('อุปกรณ์หรือเบราว์เซอร์นี้ไม่รองรับการแจ้งเตือนแบบ Push');
+    return;
+  }
+  if(isIOS() && !isStandalonePWA()){
+    alert('บน iPhone ต้อง "เพิ่มลงในหน้าจอโฮม" ก่อน (กดปุ่มแชร์ใน Safari) แล้วเปิดแอปจากไอคอนนั้น ถึงจะเปิดการแจ้งเตือนได้ครับ');
+    return;
+  }
+  const permission = await Notification.requestPermission();
+  if(permission !== 'granted'){
+    alert('คุณยังไม่ได้อนุญาตการแจ้งเตือน กรุณาลองใหม่และกด Allow');
+    renderNotifStatus();
+    return;
+  }
+  try{
+    if(!swRegistration) swRegistration = await registerServiceWorker();
+    if(!swRegistration){ alert('ลงทะเบียน service worker ไม่สำเร็จ'); return; }
+    let sub = await swRegistration.pushManager.getSubscription();
+    if(!sub){
+      sub = await swRegistration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+    }
+    const subJson = sub.toJSON();
+    const { error } = await sb.from('push_subscriptions').upsert({
+      household_id: currentHouseholdId,
+      user_id: currentUser.id,
+      endpoint: subJson.endpoint,
+      p256dh: subJson.keys.p256dh,
+      auth: subJson.keys.auth,
+      device_label: navigator.userAgent.slice(0, 120)
+    }, { onConflict: 'user_id,endpoint' });
+    if(error){ alert('บันทึก subscription ไม่สำเร็จ: ' + error.message); console.error(error); return; }
+    renderNotifStatus();
+    alert('เปิดการแจ้งเตือนสำเร็จแล้ว! 🔔');
+  }catch(e){
+    console.error(e);
+    alert('เปิดการแจ้งเตือนไม่สำเร็จ: ' + e.message);
+  }
+}
+
+async function renderNotifStatus(){
+  const titleEl = document.getElementById('notifStatusTitle');
+  const subEl = document.getElementById('notifStatusSub');
+  const btn = document.getElementById('notifBtn');
+  const iosHint = document.getElementById('notifIOSHint');
+  if(!titleEl) return;
+
+  iosHint.style.display = (isIOS() && !isStandalonePWA()) ? 'block' : 'none';
+
+  if(!('Notification' in window)){
+    titleEl.textContent = 'อุปกรณ์นี้ไม่รองรับ';
+    subEl.textContent = 'เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือนแบบ push';
+    btn.style.display = 'none';
+    return;
+  }
+  if(Notification.permission === 'denied'){
+    titleEl.textContent = 'การแจ้งเตือนถูกบล็อก';
+    subEl.textContent = 'กรุณาเปิดสิทธิ์แจ้งเตือนในตั้งค่าเบราว์เซอร์/อุปกรณ์';
+    btn.textContent = '🔔 เปิดการแจ้งเตือน';
+    return;
+  }
+  let subscribed = false;
+  if(swRegistration){
+    const sub = await swRegistration.pushManager.getSubscription();
+    subscribed = !!sub;
+  }
+  if(Notification.permission === 'granted' && subscribed){
+    titleEl.textContent = 'เปิดการแจ้งเตือนแล้ว ✅';
+    subEl.textContent = 'จะแจ้งเตือนนัดหมายวันนี้ และล่วงหน้า 1 วัน';
+    btn.textContent = '🔔 เปิดอยู่แล้ว (กดเพื่อซิงก์ใหม่)';
+  } else {
+    titleEl.textContent = 'ยังไม่ได้เปิดการแจ้งเตือน';
+    subEl.textContent = 'เปิดเพื่อรับแจ้งเตือนนัดหมายล่วงหน้า 1 วัน และวันนี้';
+    btn.textContent = '🔔 เปิดการแจ้งเตือน';
+  }
 }
 
 /* ---------- app state ---------- */
@@ -848,6 +981,7 @@ function goScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('screen-'+id).classList.add('active');
   renderNav(id);
+  if(id==='profile') renderProfileScreen();
 }
 function renderNav(activeId){
   document.getElementById('bottomNav').innerHTML = navItems.map(n=>`
@@ -1824,6 +1958,7 @@ async function deleteChildEvent(id){
 /* ---------- PROFILE ---------- */
 function renderProfileScreen(){
   if(!currentProfile) return;
+  renderNotifStatus();
   document.getElementById('pName').textContent = currentProfile.name || '-';
   document.getElementById('pEmail').textContent = currentProfile.email || '-';
   document.getElementById('pfName').value = currentProfile.name || '';
