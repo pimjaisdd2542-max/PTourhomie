@@ -171,10 +171,14 @@
   .cal-nav{background:var(--pink-soft); border:none; width:28px; height:28px; border-radius:50%; cursor:pointer; color:var(--maroon); font-weight:800;}
   .grid7{display:grid; grid-template-columns:repeat(7,1fr); gap:6px; text-align:center;}
   .grid7 .dow{font-size:11px; color:var(--muted); font-weight:700; padding-bottom:4px;}
-  .day{aspect-ratio:1; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:12.5px; font-weight:700; background:#F6F1F0; color:var(--muted); position:relative;}
-  .day.empty{background:transparent;}
+  .day{aspect-ratio:1; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:12.5px; font-weight:700; background:#F6F1F0; color:var(--muted); position:relative; cursor:pointer; transition:.15s;}
+  .day.empty{background:transparent; cursor:default;}
   .day.today{outline:2px solid var(--maroon); outline-offset:1px;}
+  .day.selected{background:var(--maroon); color:#fff;}
   .day .evt-dot{position:absolute; bottom:4px; left:50%; transform:translateX(-50%); width:5px; height:5px; border-radius:50%; background:var(--maroon);}
+  .day.selected .evt-dot{background:#fff;}
+  #calDayDetail{margin-top:16px;}
+  .cal-day-detail-header{font-size:12.5px; font-weight:800; color:var(--maroon); margin-bottom:8px; padding-left:2px;}
 
   .cal-day-group{margin-bottom:16px;}
   .cal-day-header{font-size:12.5px; font-weight:800; color:var(--maroon); margin-bottom:8px; padding-left:2px;}
@@ -413,6 +417,7 @@
       <div id="calView-month">
         <div class="cal-head"><button class="cal-nav" onclick="navMonth(-1)">‹</button><strong id="calMonthLabel">-</strong><button class="cal-nav" onclick="navMonth(1)">›</button></div>
         <div class="grid7" id="calGrid"></div>
+        <div id="calDayDetail"></div>
       </div>
 
       <!-- LIST VIEW -->
@@ -829,7 +834,7 @@ async function renderNotifStatus(){
 let currentUser = null, currentProfile = null, partnerProfile = null, currentHouseholdId = null;
 let shoppingData = [], trips = [], children = [], financeItems = [], calendarEvents = [], monthMoods = [], childWeights = [];
 let currentChildId = null, childCalMonthOffset = 0, childPhotoFile = null;
-let shopFilter = 'All', selectedMood = null, calMode = 'shared', calTab = 'month', calMonthOffset = 0;
+let shopFilter = 'All', selectedMood = null, calMode = 'shared', calTab = 'month', calMonthOffset = 0, selectedCalDate = null;
 let finViewYear = new Date().getFullYear(), finViewMonth = new Date().getMonth()+1;
 let finAddType = 'income', finAddCategory = 'เงินเดือน', finEditId = null, finMode = 'shared', finChildId = null;
 
@@ -1106,7 +1111,8 @@ async function loadCalendar(){
   selectedMood = mine ? mine.mood : null;
   const { data: events } = await sb.from('calendar_events').select('*').eq('household_id', currentHouseholdId).order('event_date', {ascending:true});
   calendarEvents = events || [];
-  renderMoodPicker(); renderMoodLog(); renderCalGrid(); renderMoodGrid(); renderCalList();
+  if(selectedCalDate===null && calMonthOffset===0) selectedCalDate = todayStr();
+  renderMoodPicker(); renderMoodLog(); renderCalGrid(); renderMoodGrid(); renderCalList(); renderCalDayDetail();
   renderHomeStats();
 }
 // ---- filters based on Shared / Personal toggle ----
@@ -1150,7 +1156,8 @@ function viewedDate(){
 }
 function navMonth(delta){
   calMonthOffset += delta;
-  renderCalGrid(); renderMoodGrid(); renderCalList();
+  selectedCalDate = null;
+  renderCalGrid(); renderMoodGrid(); renderCalList(); renderCalDayDetail();
 }
 function buildMonthShell(vd){
   const y = vd.getFullYear(), mo = vd.getMonth();
@@ -1174,9 +1181,36 @@ function renderCalGrid(){
       .map(e=>Number(e.event_date.slice(8,10)))
   );
   for(let d=1; d<=daysInMonth; d++){
-    out += `<div class="day ${isCurMonth && d===now.getDate()?'today':''}">${d}${eventDays.has(d)?'<div class="evt-dot"></div>':''}</div>`;
+    const dateStr = `${y}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isSelected = dateStr === selectedCalDate;
+    out += `<div class="day ${isCurMonth && d===now.getDate()?'today':''} ${isSelected?'selected':''}" onclick="selectCalDate('${dateStr}')">${d}${eventDays.has(d)?'<div class="evt-dot"></div>':''}</div>`;
   }
   document.getElementById('calGrid').innerHTML = out;
+}
+function selectCalDate(dateStr){
+  selectedCalDate = dateStr;
+  renderCalGrid();
+  renderCalDayDetail();
+}
+function renderCalDayDetail(){
+  const box = document.getElementById('calDayDetail');
+  if(!box) return;
+  if(!selectedCalDate){ box.innerHTML = ''; return; }
+  const events = visibleEvents()
+    .filter(e => e.event_date === selectedCalDate)
+    .slice().sort((a,b)=>a.title.localeCompare(b.title));
+  const dt = new Date(selectedCalDate + 'T00:00:00');
+  const label = dt.toLocaleDateString('en-US', {weekday:'short', day:'numeric', month:'short', year:'numeric'});
+  box.innerHTML = `
+    <div class="cal-day-detail-header">${label}</div>
+    ${events.length ? events.map(e=>`
+      <div class="cal-event-row">
+        <div class="dot-ic">${e.child_id?'🩺':'📌'}</div>
+        <div class="item-name">${e.title}${e.child_id?' · '+(childNameById(e.child_id)||''):''}</div>
+        <div class="cal-event-tag" style="color:${e.visibility==='personal'?'#2A7A93':'var(--maroon)'}; background:${e.visibility==='personal'?'#EAF7FC':'var(--pink-soft)'};">${e.visibility==='personal'?'Personal':'Shared'}</div>
+        <button class="fin-icon-btn" onclick="deleteEvent('${e.id}')">🗑️</button>
+      </div>`).join('') : `<div class="empty-note">ไม่มี Event ในวันที่เลือก</div>`}
+  `;
 }
 function renderMoodGrid(){
   // MOOD TAB: colored background per day. Shared mode = split stripes per person, Personal = single color
@@ -1264,7 +1298,7 @@ function setCalMode(mode){
   calMode = mode;
   document.getElementById('pillShared').className = 'pill' + (mode==='shared' ? ' on-shared' : '');
   document.getElementById('pillPersonal').className = 'pill' + (mode==='personal' ? ' on-personal' : '');
-  renderCalGrid(); renderMoodGrid(); renderCalList(); renderMoodLog();
+  renderCalGrid(); renderMoodGrid(); renderCalList(); renderMoodLog(); renderCalDayDetail();
 }
 function setCalTab(t, btn){
   document.querySelectorAll('.tab-row button').forEach(b=>b.classList.remove('active'));
