@@ -418,6 +418,7 @@
         <div class="cal-head"><button class="cal-nav" onclick="navMonth(-1)">‹</button><strong id="calMonthLabel">-</strong><button class="cal-nav" onclick="navMonth(1)">›</button></div>
         <div class="grid7" id="calGrid"></div>
         <div id="calDayDetail"></div>
+        <button class="add-btn" onclick="openAddEventModal()" style="margin-top:16px;">+ Add Event</button>
       </div>
 
       <!-- LIST VIEW -->
@@ -618,6 +619,8 @@
         <div id="childCalView-month">
           <div class="cal-head"><button class="cal-nav" onclick="navChildCalMonth(-1)">‹</button><strong id="childCalMonthLabel">-</strong><button class="cal-nav" onclick="navChildCalMonth(1)">›</button></div>
           <div class="grid7" id="childCalGrid"></div>
+          <div id="childCalDayDetail"></div>
+          <button class="add-btn" onclick="openAddChildEventModal()" style="margin-top:16px;">+ Add Appointment</button>
         </div>
         <div id="childCalView-list" style="display:none;">
           <div class="cal-head"><button class="cal-nav" onclick="navChildCalMonth(-1)">‹</button><strong id="childCalListMonthLabel">-</strong><button class="cal-nav" onclick="navChildCalMonth(1)">›</button></div>
@@ -833,7 +836,7 @@ async function renderNotifStatus(){
 /* ---------- app state ---------- */
 let currentUser = null, currentProfile = null, partnerProfile = null, currentHouseholdId = null;
 let shoppingData = [], trips = [], children = [], financeItems = [], calendarEvents = [], monthMoods = [], childWeights = [];
-let currentChildId = null, childCalMonthOffset = 0, childPhotoFile = null;
+let currentChildId = null, childCalMonthOffset = 0, childPhotoFile = null, selectedChildCalDate = null;
 let shopFilter = 'All', selectedMood = null, calMode = 'shared', calTab = 'month', calMonthOffset = 0, selectedCalDate = null;
 let finViewYear = new Date().getFullYear(), finViewMonth = new Date().getMonth()+1;
 let finAddType = 'income', finAddCategory = 'เงินเดือน', finEditId = null, finMode = 'shared', finChildId = null;
@@ -1276,7 +1279,7 @@ async function deleteEvent(id){
 }
 function openAddEventModal(){
   document.getElementById('newEventTitle').value = '';
-  document.getElementById('newEventDate').value = todayStr();
+  document.getElementById('newEventDate').value = selectedCalDate || todayStr();
   document.getElementById('addEventModal').classList.add('show');
 }
 function closeAddEventModal(){
@@ -1770,6 +1773,7 @@ function openChildDetail(id){
   currentChildId = id;
   childPhotoFile = null;
   childCalMonthOffset = 0;
+  selectedChildCalDate = null;
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('screen-child-detail').classList.add('active');
   renderNav('child');
@@ -1805,7 +1809,7 @@ function renderChildDetail(){
   }
   document.getElementById('childDeleteBtn').style.display = c ? 'block' : 'none';
 
-  if(c){ renderChildCalGrid(); renderChildCalList(); }
+  if(c){ renderChildCalGrid(); renderChildCalList(); renderChildCalDayDetail(); }
 }
 function updateChildAgePreview(){
   const bday = document.getElementById('childBirthdayInput').value;
@@ -1905,7 +1909,8 @@ function childViewedDate(){
 }
 function navChildCalMonth(delta){
   childCalMonthOffset += delta;
-  renderChildCalGrid(); renderChildCalList();
+  selectedChildCalDate = null;
+  renderChildCalGrid(); renderChildCalList(); renderChildCalDayDetail();
 }
 function renderChildCalGrid(){
   if(!currentChildId) return;
@@ -1920,9 +1925,33 @@ function renderChildCalGrid(){
       .map(e=>Number(e.event_date.slice(8,10)))
   );
   for(let d=1; d<=daysInMonth; d++){
-    out += `<div class="day ${isCurMonth && d===now.getDate()?'today':''}">${d}${eventDays.has(d)?'<div class="evt-dot"></div>':''}</div>`;
+    const dateStr = `${y}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isSelected = dateStr === selectedChildCalDate;
+    out += `<div class="day ${isCurMonth && d===now.getDate()?'today':''} ${isSelected?'selected':''}" onclick="selectChildCalDate('${dateStr}')">${d}${eventDays.has(d)?'<div class="evt-dot"></div>':''}</div>`;
   }
   document.getElementById('childCalGrid').innerHTML = out;
+}
+function selectChildCalDate(dateStr){
+  selectedChildCalDate = dateStr;
+  renderChildCalGrid();
+  renderChildCalDayDetail();
+}
+function renderChildCalDayDetail(){
+  const box = document.getElementById('childCalDayDetail');
+  if(!box) return;
+  if(!selectedChildCalDate){ box.innerHTML = ''; return; }
+  const events = childEvents().filter(e => e.event_date === selectedChildCalDate);
+  const dt = new Date(selectedChildCalDate + 'T00:00:00');
+  const label = dt.toLocaleDateString('en-US', {weekday:'short', day:'numeric', month:'short', year:'numeric'});
+  box.innerHTML = `
+    <div class="cal-day-detail-header">${label}</div>
+    ${events.length ? events.map(e=>`
+      <div class="cal-event-row">
+        <div class="dot-ic">🩺</div>
+        <div class="item-name">${e.title}</div>
+        <button class="fin-icon-btn" onclick="deleteChildEvent('${e.id}')">🗑️</button>
+      </div>`).join('') : `<div class="empty-note">ไม่มี Event ในวันที่เลือก</div>`}
+  `;
 }
 function renderChildCalList(){
   if(!currentChildId) return;
@@ -1953,7 +1982,8 @@ function setChildDetailTab(t){
     document.querySelectorAll('#childTab-calendar .tab-row button').forEach(b=>b.classList.toggle('active', b.dataset.ct==='month'));
     document.getElementById('childCalView-month').style.display = '';
     document.getElementById('childCalView-list').style.display = 'none';
-    renderChildCalGrid(); renderChildCalList();
+    if(selectedChildCalDate===null && childCalMonthOffset===0) selectedChildCalDate = todayStr();
+    renderChildCalGrid(); renderChildCalList(); renderChildCalDayDetail();
   }
 }
 function setChildCalTab(t, btn){
@@ -1964,7 +1994,7 @@ function setChildCalTab(t, btn){
 }
 function openAddChildEventModal(){
   document.getElementById('newChildEventTitle').value = '';
-  document.getElementById('newChildEventDate').value = todayStr();
+  document.getElementById('newChildEventDate').value = selectedChildCalDate || todayStr();
   document.getElementById('addChildEventModal').classList.add('show');
 }
 function closeAddChildEventModal(){ document.getElementById('addChildEventModal').classList.remove('show'); }
@@ -1979,14 +2009,15 @@ async function submitNewChildEvent(){
   if(error){ alert('บันทึกไม่สำเร็จ: ' + error.message); console.error(error); return; }
   closeAddChildEventModal();
   await loadCalendar();
-  renderChildCalGrid(); renderChildCalList();
+  selectedChildCalDate = event_date;
+  renderChildCalGrid(); renderChildCalList(); renderChildCalDayDetail();
 }
 async function deleteChildEvent(id){
   if(!confirm('ลบนัดหมายนี้?')) return;
   const { error } = await sb.from('calendar_events').delete().eq('id', id);
   if(error){ alert('ลบไม่สำเร็จ: ' + error.message); console.error(error); return; }
   await loadCalendar();
-  renderChildCalGrid(); renderChildCalList();
+  renderChildCalGrid(); renderChildCalList(); renderChildCalDayDetail();
 }
 
 /* ---------- PROFILE ---------- */
