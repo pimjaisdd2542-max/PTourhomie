@@ -282,12 +282,17 @@
   .child-weight-row span:first-child{color:var(--muted); font-weight:600;}
 
   .profile-top{display:flex; align-items:center; gap:16px; margin-bottom:22px;}
-  .avatar{width:78px; height:78px; border-radius:24px; background:var(--pink-soft); display:flex; align-items:center; justify-content:center; font-size:30px;}
+  .avatar-wrap{position:relative; flex-shrink:0;}
+  .avatar{width:78px; height:78px; border-radius:24px; background:var(--pink-soft); display:flex; align-items:center; justify-content:center; font-size:30px; cursor:pointer; overflow:hidden; transition:opacity .2s;}
+  .avatar img{width:100%; height:100%; object-fit:cover; display:block;}
+  .avatar-cam{position:absolute; right:-6px; bottom:-6px; width:30px; height:30px; border-radius:50%; border:2px solid #fff; background:var(--maroon); color:#fff; font-size:13px; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;}
+  .avatar-remove{background:none; border:0; padding:0; margin-top:6px; font-size:12px; font-weight:700; color:var(--maroon); text-decoration:underline; cursor:pointer; display:none;}
   .profile-top .who strong{font-family:'Baloo 2'; font-size:17px; display:block;}
   .profile-top .who span{font-size:12.5px; color:var(--muted);}
   .plabel{font-size:11.5px; font-weight:800; color:var(--muted); margin:0 0 6px 4px;}
   .partner-box{border:1.5px solid var(--line); border-radius:16px; padding:12px 14px; margin-top:8px; display:flex; align-items:center; gap:10px;}
   .partner-box .em{font-size:22px;}
+  .partner-box .em img{width:40px; height:40px; border-radius:14px; object-fit:cover; display:block;}
   .partner-box .t div:first-child{font-weight:800; font-size:13.5px;}
   .partner-box .t div:last-child{font-size:11.5px; color:var(--muted);}
 
@@ -656,8 +661,12 @@
     <section class="screen" id="screen-profile">
       <div class="topbar"><h1>Profile</h1><button class="icon-btn" onclick="handleSignOut()">↩️</button></div>
       <div class="profile-top">
-        <div class="avatar" id="pAvatar">🙂</div>
-        <div class="who"><strong id="pName">-</strong><span id="pEmail">-</span></div>
+        <div class="avatar-wrap">
+          <div class="avatar" id="pAvatar" onclick="pickAvatar()">🙂</div>
+          <button type="button" class="avatar-cam" onclick="pickAvatar()" aria-label="เปลี่ยนรูปโปรไฟล์">📷</button>
+          <input type="file" id="avatarInput" accept="image/*" style="display:none;" onchange="handleAvatarSelect(event)">
+        </div>
+        <div class="who"><strong id="pName">-</strong><span id="pEmail">-</span><button type="button" class="avatar-remove" id="avatarRemoveBtn" onclick="removeAvatar()">ลบรูปโปรไฟล์</button></div>
       </div>
       <p class="plabel">NAME</p>
       <div class="field"><input id="pfName"></div>
@@ -2026,17 +2035,73 @@ function renderProfileScreen(){
   renderNotifStatus();
   document.getElementById('pName').textContent = currentProfile.name || '-';
   document.getElementById('pEmail').textContent = currentProfile.email || '-';
+  const avEl = document.getElementById('pAvatar');
+  if(currentProfile.avatar_url){ avEl.innerHTML = `<img src="${currentProfile.avatar_url}" alt="">`; }
+  else { avEl.textContent = '🙂'; }
+  document.getElementById('avatarRemoveBtn').style.display = currentProfile.avatar_url ? 'inline-block' : 'none';
   document.getElementById('pfName').value = currentProfile.name || '';
   document.getElementById('pfNick').value = currentProfile.nickname || '';
   document.getElementById('pfAge').value = currentProfile.age || '';
   document.getElementById('pfBirthday').value = currentProfile.birthday || '';
   const box = document.getElementById('partnerBox');
   if(partnerProfile){
-    box.innerHTML = `<div class="em">💞</div><div class="t"><div>${partnerProfile.nickname||partnerProfile.name}</div><div>${partnerProfile.email}</div></div>`;
+    const pIcon = partnerProfile.avatar_url ? `<img src="${partnerProfile.avatar_url}" alt="">` : '💞';
+    box.innerHTML = `<div class="em">${pIcon}</div><div class="t"><div>${partnerProfile.nickname||partnerProfile.name}</div><div>${partnerProfile.email}</div></div>`;
   } else {
     box.innerHTML = `<div class="em">💌</div><div class="t"><div>ยังไม่มีคู่ผูกด้วย</div><div>รอคู่รักสมัครด้วยอีเมลที่ตรงกัน</div></div>`;
   }
 }
+/* ---------- AVATAR PHOTO ---------- */
+function pickAvatar(){ document.getElementById('avatarInput').click(); }
+function resizeToSquare(file, size){
+  return new Promise((resolve, reject)=>{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = ()=>{
+      const s = Math.min(img.naturalWidth, img.naturalHeight);
+      const sx = (img.naturalWidth - s)/2, sy = (img.naturalHeight - s)/2;
+      const c = document.createElement('canvas');
+      c.width = c.height = size;
+      c.getContext('2d').drawImage(img, sx, sy, s, s, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => b ? resolve(b) : reject(new Error('แปลงรูปไม่สำเร็จ')), 'image/jpeg', 0.85);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('เปิดไฟล์รูปนี้ไม่ได้ ลองเลือกรูป JPG หรือ PNG')); };
+    img.src = url;
+  });
+}
+async function handleAvatarSelect(e){
+  const file = e.target.files[0];
+  e.target.value = '';
+  if(!file) return;
+  const av = document.getElementById('pAvatar');
+  av.style.opacity = '.4';
+  try{
+    const blob = await resizeToSquare(file, 400);
+    const path = `${currentUser.id}/avatar.jpg`;
+    const { error: upErr } = await sb.storage.from('avatars').upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
+    if(upErr) throw upErr;
+    const { data: pub } = sb.storage.from('avatars').getPublicUrl(path);
+    const url = pub.publicUrl + '?v=' + Date.now();
+    const { error } = await sb.from('profiles').update({ avatar_url: url }).eq('id', currentUser.id);
+    if(error) throw error;
+    currentProfile.avatar_url = url;
+  }catch(err){
+    alert('เปลี่ยนรูปไม่สำเร็จ: ' + (err.message || err));
+    console.error(err);
+  }
+  av.style.opacity = '1';
+  renderProfileScreen();
+}
+async function removeAvatar(){
+  if(!confirm('ลบรูปโปรไฟล์?')) return;
+  await sb.storage.from('avatars').remove([`${currentUser.id}/avatar.jpg`]);
+  const { error } = await sb.from('profiles').update({ avatar_url: null }).eq('id', currentUser.id);
+  if(error){ alert('ลบไม่สำเร็จ: ' + error.message); return; }
+  currentProfile.avatar_url = null;
+  renderProfileScreen();
+}
+
 async function saveProfile(){
   const update = {
     name: val('pfName'), nickname: val('pfNick'),
