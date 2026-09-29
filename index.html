@@ -1046,7 +1046,7 @@ function renderHomeStats(){
     : `<div class="empty-note">ยังไม่มีนัดหมายวันนี้</div>`;
   const futureEvents = homeVisibleEvents.filter(e=>e.event_date > todayStr());
   document.getElementById('homeEvents').innerHTML = futureEvents.slice(0,3).map(e=>`
-    <div class="list-item"><div class="date-chip">${e.event_date.slice(8,10)}</div><div class="item-name">${e.title}${e.child_id?' · 🩺 '+(childNameById(e.child_id)||''):''}</div></div>`).join('')
+    <div class="list-item"><div class="date-chip" style="flex-direction:column;"><span style="font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; opacity:.8;">${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(e.event_date.slice(5,7))-1]}</span><span style="font-size:14px;">${e.event_date.slice(8,10)}</span></div><div class="item-name">${e.title}${e.child_id?' · 🩺 '+(childNameById(e.child_id)||''):''}</div></div>`).join('')
     || `<div class="empty-note">ยังไม่มีกิจกรรมล่วงหน้า</div>`;
   renderHomeShoppingPreview();
 }
