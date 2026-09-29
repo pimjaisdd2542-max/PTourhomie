@@ -177,6 +177,9 @@
   .day.selected{background:var(--maroon); color:#fff;}
   .day .evt-dot{position:absolute; bottom:4px; left:50%; transform:translateX(-50%); width:5px; height:5px; border-radius:50%; background:var(--maroon);}
   .day.selected .evt-dot{background:#fff;}
+  .day .mlab{position:absolute; left:2px; right:2px; bottom:2px; display:flex; font-size:8.5px; font-weight:800; line-height:1; color:#4A2A32; pointer-events:none;}
+  .day .mlab span{flex:1; text-align:center; white-space:nowrap; overflow:hidden;}
+  .day.has-mood{padding-bottom:9px;}
   #calDayDetail{margin-top:16px;}
   .cal-day-detail-header{font-size:12.5px; font-weight:800; color:var(--maroon); margin-bottom:8px; padding-left:2px;}
 
@@ -1224,6 +1227,15 @@ function renderCalDayDetail(){
       </div>`).join('') : `<div class="empty-note">ไม่มี Event ในวันที่เลือก</div>`}
   `;
 }
+function moodShortName(uid){
+  const raw = uid===currentUser.id ? (currentProfile?.nickname||currentProfile?.name||'') : (partnerProfile?.nickname||partnerProfile?.name||'');
+  const nm = String(raw).trim();
+  if(!nm) return '?';
+  let chars;
+  if(window.Intl && Intl.Segmenter){ chars = Array.from(new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(nm), x=>x.segment); }
+  else chars = Array.from(nm);
+  return chars.slice(0,2).join('').replace(/[<>&]/g,'');
+}
 function renderMoodGrid(){
   // MOOD TAB: colored background per day. Shared mode = split stripes per person, Personal = single color
   const now = new Date();
@@ -1241,6 +1253,7 @@ function renderMoodGrid(){
       if(!mood) return;
       (byDay[d] = byDay[d]||[]).push({uid:m.user_id, color:mood.color});
     });
+  Object.values(byDay).forEach(arr=>arr.sort((a,b)=>(b.uid===currentUser.id)-(a.uid===currentUser.id)));
   for(let d=1; d<=daysInMonth; d++){
     let bg = '';
     const entries = byDay[d];
@@ -1253,7 +1266,11 @@ function renderMoodGrid(){
         bg = `background:${entries[0].color}99;`;
       }
     }
-    out += `<div class="day ${isCurMonth && d===now.getDate()?'today':''}" style="${bg}">${d}</div>`;
+    let lab = '';
+    if(entries && entries.length){
+      lab = '<div class="mlab">' + entries.map(e=>`<span>${moodShortName(e.uid)}</span>`).join('') + '</div>';
+    }
+    out += `<div class="day ${isCurMonth && d===now.getDate()?'today':''} ${lab?'has-mood':''}" style="${bg}">${d}${lab}</div>`;
   }
   document.getElementById('calMoodGrid').innerHTML = out;
 }
