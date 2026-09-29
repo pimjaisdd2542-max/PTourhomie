@@ -1033,10 +1033,13 @@ function renderHomeStats(){
   const { remaining, pct } = computeFinBalance('shared');
   const budgetColor = pct >= 0 ? '#3F9C8C' : 'var(--maroon)';
   const homeVisibleEvents = calendarEvents.filter(e => (e.visibility||'shared')==='shared' || e.created_by===currentUser.id);
+  const curYM = todayStr().slice(0,7);
+  const monthEventCount = homeVisibleEvents.filter(e => (e.event_date||'').slice(0,7)===curYM).length;
+  const monthTripCount = trips.filter(t => (t.start_date||'').slice(0,7)===curYM).length;
   document.getElementById('homeStats').innerHTML = `
     <div class="stat-card"><div class="em">🛒</div><div class="stat-num">${undone}</div><div class="stat-label">Shopping</div></div>
-    <div class="stat-card"><div class="em">📅</div><div class="stat-num">${homeVisibleEvents.length}</div><div class="stat-label">Events</div></div>
-    <div class="stat-card"><div class="em">✈️</div><div class="stat-num">${trips.length}</div><div class="stat-label">Travel Trip</div></div>
+    <div class="stat-card"><div class="em">📅</div><div class="stat-num">${monthEventCount}</div><div class="stat-label">Events</div></div>
+    <div class="stat-card"><div class="em">✈️</div><div class="stat-num">${monthTripCount}</div><div class="stat-label">Travel Trip</div></div>
     <div class="stat-card"><div class="em">👶</div><div class="stat-num">${children.length}</div><div class="stat-label">Child</div></div>
     <div class="stat-card" onclick="goScreen('finance')" style="cursor:pointer;"><div class="em">🐷</div><div class="stat-num" style="color:${budgetColor};">${pct>=0?'+':''}${pct}%</div><div class="stat-label">${formatCompactTHB(remaining)}</div></div>`;
   const todayBox = document.getElementById('homeToday');
@@ -1403,8 +1406,9 @@ function itemsForViewMonth(){
   return financeItemsForMode(finMode).filter(f => (f.entry_date||'').slice(0,7)===ym);
 }
 function computeFinBalance(mode = finMode){
-  // Cumulative across ALL months (carries forward previous months' leftover balance)
-  const items = financeItemsForMode(mode);
+  // Cumulative up to today (carries forward previous months' leftover balance; ignores future-dated entries)
+  const _today = todayStr();
+  const items = financeItemsForMode(mode).filter(f => !f.entry_date || f.entry_date <= _today);
   const totalIncome = items.filter(f=>f.type==='income').reduce((a,b)=>a+Number(b.amount),0);
   const totalSpend = items.filter(f=>f.type==='spending').reduce((a,b)=>a+Number(b.amount),0);
   const remaining = totalIncome - totalSpend;
