@@ -519,6 +519,7 @@
         <div class="field"><input type="number" id="finAmountInput" placeholder="จำนวนเงิน (บาท)"></div>
         <div class="modal-label">หมวดหมู่</div>
         <div class="chip-row" id="finCatRow"></div>
+        <div class="field" id="finNoteWrap" style="display:none; margin-top:10px;"><input type="text" id="finNoteInput" maxlength="80" placeholder="อื่นๆ (โปรดระบุ) เช่น ค่าซ่อมก๊อกน้ำ"></div>
         <button class="btn-primary" onclick="submitFinanceItem()">+ เพิ่มรายการ</button>
         <div class="modal-cancel" onclick="closeAddFinanceModal()">ยกเลิก</div>
       </div>
@@ -856,10 +857,10 @@ let finAddType = 'income', finAddCategory = 'เงินเดือน', finEd
 const catColors = {Food:'#F4A25E', Home:'#B79CE0', Health:'#8FD1EC', Child:'#F5A6B6'};
 const incomeCatColors = {'เงินเดือน':'#3F9C8C', 'อื่นๆ':'#6FC7B8', 'ดอกเบี้ย':'#4FB0A5', 'เงินเก็บ':'#2E9E7A'};
 const childIncomeCatColors = {'เงินเก็บ':'#2E9E7A'};
-const expenseCatColors = {Food:'#F4A25E', Home:'#B79CE0', Health:'#8FD1EC', Child:'#F5A6B6', Travel:'#5FA8D3', Car:'#E0A96D', Shopping:'#D98CC0', 'ค่าเทอมลูก':'#F08FA2'};
+const expenseCatColors = {Food:'#F4A25E', Home:'#B79CE0', Health:'#8FD1EC', Child:'#F5A6B6', Travel:'#5FA8D3', Car:'#E0A96D', Shopping:'#D98CC0', 'ค่าเทอมลูก':'#F08FA2', Other:'#9B9B9B'};
 const personalExpenseCatColors = {Shopee:'#EE6C9B', Oil:'#5B9BD5', Other:'#9B9B9B', Family:'#F2A65A', 'Save Money':'#3F9C8C'};
 const finCatIcons = {'เงินเดือน':'💰', 'อื่นๆ':'💵', 'ดอกเบี้ย':'📈', 'เงินเก็บ':'🐷', Food:'🍔', Home:'🏠', Health:'💊', Child:'🍼', Travel:'✈️', Car:'🚗', Shopping:'🛍️', 'ค่าเทอมลูก':'🎓', Shopee:'🛒', Oil:'⛽', Other:'📦', Family:'👨‍👩‍👧', 'Save Money':'🐷'};
-const expenseCatMax = {Travel:10000, Food:3500, Home:2000, Health:1000, Child:15000, Car:9000, Shopping:3000, 'ค่าเทอมลูก':15000};
+const expenseCatMax = {Travel:10000, Food:3500, Home:2000, Health:1000, Child:15000, Car:9000, Shopping:3000, 'ค่าเทอมลูก':15000, Other:1500};
 const personalExpenseCatMax = {Shopee:3000, Oil:2000, Other:1500, Family:5000, 'Save Money':10000};
 function currentIncomeCatColors(){ return finMode==='child' ? childIncomeCatColors : incomeCatColors; }
 function currentExpenseCatColors(){ return finMode==='personal' ? personalExpenseCatColors : expenseCatColors; }
@@ -1487,7 +1488,7 @@ function renderFinance(){
   }).join('') || `<div class="empty-note">ยังไม่มีรายรับ</div>`;
 
   document.getElementById('finSpendList').innerHTML = spend.map(s=>{
-    return `<div class="fin-item"><div class="row1"><span>${finCatIcons[s.category]||'🧾'} ${s.category}</span>
+    return `<div class="fin-item"><div class="row1"><span>${finCatIcons[s.category]||'🧾'} ${s.category}${finNoteText(s)}</span>
       <span class="actions">฿${Number(s.amount).toLocaleString()}
         <button class="fin-icon-btn" onclick="openEditFinanceModal('${s.id}')">✏️</button>
         <button class="fin-icon-btn" onclick="deleteFinanceItem('${s.id}')">🗑️</button>
@@ -1515,6 +1516,15 @@ function renderFinChart(income, spend){
     </div>`;
   }).join('');
 }
+function finNoteText(i){
+  if(i.category!=='Other' || !i.name || i.name==='Other') return '';
+  const esc = String(i.name).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  return `<div style="font-size:11px; font-weight:600; color:var(--muted); margin-top:2px; word-break:break-word;">📝 ${esc}</div>`;
+}
+function updateFinNoteField(){
+  const show = finAddType==='spending' && finAddCategory==='Other';
+  document.getElementById('finNoteWrap').style.display = show ? '' : 'none';
+}
 function openAddFinanceModal(type){
   if(finMode==='child' && !finChildId){ alert('กรุณาไปเพิ่มข้อมูลลูกที่หน้า Child ก่อน'); return; }
   finEditId = null;
@@ -1522,6 +1532,7 @@ function openAddFinanceModal(type){
   finAddCategory = type==='income' ? Object.keys(currentIncomeCatColors())[0] : Object.keys(currentExpenseCatColors())[0];
   document.getElementById('finModalTitle').textContent = type==='income' ? 'เพิ่มรายรับ' : 'เพิ่มรายจ่าย';
   document.getElementById('finAmountInput').value = '';
+  document.getElementById('finNoteInput').value = '';
   renderFinCatChips();
   document.getElementById('addFinanceModal').classList.add('show');
 }
@@ -1533,6 +1544,7 @@ function openEditFinanceModal(id){
   finAddCategory = item.category;
   document.getElementById('finModalTitle').textContent = item.type==='income' ? 'แก้ไขรายรับ' : 'แก้ไขรายจ่าย';
   document.getElementById('finAmountInput').value = item.amount;
+  document.getElementById('finNoteInput').value = (item.category==='Other' && item.name && item.name!=='Other') ? item.name : '';
   renderFinCatChips();
   document.getElementById('addFinanceModal').classList.add('show');
 }
@@ -1552,18 +1564,21 @@ function renderFinCatChips(){
     const active = finAddCategory===c;
     return `<div class="chip ${active?'active':''}" style="${active?`background:${map[c]}; border-color:${map[c]};`:''}" onclick="pickFinCat('${c}')">${finCatIcons[c]||''} ${c}</div>`;
   }).join('');
+  updateFinNoteField();
 }
-function pickFinCat(c){ finAddCategory = c; renderFinCatChips(); }
+function pickFinCat(c){ finAddCategory = c; renderFinCatChips(); if(c==='Other' && finAddType==='spending') setTimeout(()=>document.getElementById('finNoteInput').focus(),50); }
 async function submitFinanceItem(){
   const amount = Number(document.getElementById('finAmountInput').value) || 0;
   if(!amount) return;
+  const note = document.getElementById('finNoteInput').value.trim();
+  const itemName = (finAddType==='spending' && finAddCategory==='Other' && note) ? note : finAddCategory;
   let error;
   if(finEditId){
-    ({ error } = await sb.from('finance_items').update({ category: finAddCategory, amount, name: finAddCategory }).eq('id', finEditId));
+    ({ error } = await sb.from('finance_items').update({ category: finAddCategory, amount, name: itemName }).eq('id', finEditId));
     finEditId = null;
   } else {
     ({ error } = await sb.from('finance_items').insert({
-      household_id: currentHouseholdId, type: finAddType, category: finAddCategory, amount, name: finAddCategory,
+      household_id: currentHouseholdId, type: finAddType, category: finAddCategory, amount, name: itemName,
       entry_date: todayStr(), created_by: currentUser.id, visibility: finMode,
       child_id: finMode==='child' ? finChildId : null
     }));
