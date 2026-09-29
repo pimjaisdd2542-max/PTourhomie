@@ -1037,10 +1037,10 @@ function renderHomeStats(){
   const monthEventCount = homeVisibleEvents.filter(e => (e.event_date||'').slice(0,7)===curYM).length;
   const monthTripCount = trips.filter(t => (t.start_date||'').slice(0,7)===curYM).length;
   document.getElementById('homeStats').innerHTML = `
-    <div class="stat-card"><div class="em">🛒</div><div class="stat-num">${undone}</div><div class="stat-label">Shopping</div></div>
-    <div class="stat-card"><div class="em">📅</div><div class="stat-num">${monthEventCount}</div><div class="stat-label">Events</div></div>
-    <div class="stat-card"><div class="em">✈️</div><div class="stat-num">${monthTripCount}</div><div class="stat-label">Travel Trip</div></div>
-    <div class="stat-card"><div class="em">👶</div><div class="stat-num">${children.length}</div><div class="stat-label">Child</div></div>
+    <div class="stat-card" onclick="goScreen('shopping')" style="cursor:pointer;"><div class="em">🛒</div><div class="stat-num">${undone}</div><div class="stat-label">Shopping</div></div>
+    <div class="stat-card" onclick="goScreen('calendar')" style="cursor:pointer;"><div class="em">📅</div><div class="stat-num">${monthEventCount}</div><div class="stat-label">Events</div></div>
+    <div class="stat-card" onclick="goScreen('travel')" style="cursor:pointer;"><div class="em">✈️</div><div class="stat-num">${monthTripCount}</div><div class="stat-label">Travel Trip</div></div>
+    <div class="stat-card" onclick="goScreen('child')" style="cursor:pointer;"><div class="em">👶</div><div class="stat-num">${children.length}</div><div class="stat-label">Child</div></div>
     <div class="stat-card" onclick="goScreen('finance')" style="cursor:pointer;"><div class="em">🐷</div><div class="stat-num" style="color:${budgetColor};">${pct>=0?'+':''}${pct}%</div><div class="stat-label">${formatCompactTHB(remaining)}</div></div>`;
   const todayBox = document.getElementById('homeToday');
   const todaysEvents = homeVisibleEvents.filter(e=>e.event_date === todayStr());
