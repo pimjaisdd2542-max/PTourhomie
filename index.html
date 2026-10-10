@@ -180,6 +180,9 @@
   .day .mlab{position:absolute; left:2px; right:2px; bottom:2px; display:flex; font-size:8.5px; font-weight:800; line-height:1; color:#4A2A32; pointer-events:none;}
   .day .mlab span{flex:1; text-align:center; white-space:nowrap; overflow:hidden;}
   .day.has-mood{padding-bottom:9px;}
+  .day.mood-sel{box-shadow:0 0 0 2px var(--maroon);}
+  .day.future{opacity:.45; cursor:default;}
+  .back-today{font-size:12px; font-weight:800; color:var(--maroon); text-decoration:underline; cursor:pointer; margin:-6px 0 12px 2px; display:none;}
   #calDayDetail{margin-top:16px;}
   .cal-day-detail-header{font-size:12.5px; font-weight:800; color:var(--maroon); margin-bottom:8px; padding-left:2px;}
 
@@ -438,7 +441,8 @@
 
       <!-- MOOD VIEW -->
       <div id="calView-mood" style="display:none;">
-        <div class="mood-q">🙂 How are you feeling today?</div>
+        <div class="mood-q" id="moodQ">🙂 How are you feeling today?</div>
+        <div class="back-today" id="moodBackToday" onclick="selectMoodDate(null)">← กลับมาวันนี้</div>
         <div class="mood-row" id="moodPicker"></div>
         <div id="moodLog"></div>
         <div class="cal-head"><button class="cal-nav" onclick="navMonth(-1)">‹</button><strong id="calMoodMonthLabel">-</strong><button class="cal-nav" onclick="navMonth(1)">›</button></div>
@@ -850,6 +854,18 @@ async function renderNotifStatus(){
 let currentUser = null, currentProfile = null, partnerProfile = null, currentHouseholdId = null;
 let shoppingData = [], trips = [], children = [], financeItems = [], calendarEvents = [], monthMoods = [], childWeights = [];
 let currentChildId = null, childCalMonthOffset = 0, childPhotoFile = null, selectedChildCalDate = null;
+let selectedMoodDate = null; // null = วันนี้
+function moodDate(){ return selectedMoodDate || todayStr(); }
+function myMoodOn(d){
+  const m = monthMoods.find(x=>x.user_id===currentUser.id && x.log_date===d);
+  return m ? m.mood : null;
+}
+function selectMoodDate(d){
+  if(d && d > todayStr()) return;
+  selectedMoodDate = (d===todayStr()) ? null : d;
+  selectedMood = myMoodOn(moodDate());
+  renderMoodPicker(); renderMoodLog(); renderMoodGrid();
+}
 let shopFilter = 'All', selectedMood = null, calMode = 'shared', calTab = 'month', calMonthOffset = 0, selectedCalDate = null;
 let finViewYear = new Date().getFullYear(), finViewMonth = new Date().getMonth()+1;
 let finAddType = 'income', finAddCategory = 'เงินเดือน', finEditId = null, finMode = 'shared', finChildId = null;
@@ -1126,8 +1142,7 @@ async function submitNewItem(){
 async function loadCalendar(){
   const { data } = await sb.from('calendar_moods').select('*').eq('household_id', currentHouseholdId);
   monthMoods = data || [];
-  const mine = monthMoods.find(m=>m.user_id===currentUser.id && m.log_date===todayStr());
-  selectedMood = mine ? mine.mood : null;
+  selectedMood = myMoodOn(moodDate());
   const { data: events } = await sb.from('calendar_events').select('*').eq('household_id', currentHouseholdId).order('event_date', {ascending:true});
   calendarEvents = events || [];
   if(selectedCalDate===null && calMonthOffset===0) selectedCalDate = todayStr();
@@ -1144,6 +1159,9 @@ function visibleMoods(){
   return calMode==='shared' ? monthMoods : monthMoods.filter(m=>m.user_id===currentUser.id);
 }
 function renderMoodPicker(){
+  const d = moodDate(), isToday = d===todayStr();
+  document.getElementById('moodQ').textContent = isToday ? '🙂 How are you feeling today?' : `🙂 วันที่ ${formatDateTH(d)} รู้สึกยังไง?`;
+  document.getElementById('moodBackToday').style.display = isToday ? 'none' : 'block';
   document.getElementById('moodPicker').innerHTML = moods.map(m=>{
     const sel = selectedMood===m.key;
     return `
@@ -1155,19 +1173,21 @@ function renderMoodPicker(){
 async function pickMood(key){
   selectedMood = key;
   renderMoodPicker();
-  await sb.from('calendar_moods').upsert(
-    { household_id: currentHouseholdId, user_id: currentUser.id, mood: key, log_date: todayStr() },
+  const { error } = await sb.from('calendar_moods').upsert(
+    { household_id: currentHouseholdId, user_id: currentUser.id, mood: key, log_date: moodDate() },
     { onConflict: 'user_id,log_date' });
+  if(error){ alert('บันทึกไม่สำเร็จ: ' + error.message); console.error(error); return; }
+  await loadCalendar();
 }
 function renderMoodLog(){
-  const today = todayStr();
+  const today = moodDate();
   const entries = visibleMoods().filter(m=>m.log_date===today);
   document.getElementById('moodLog').innerHTML = entries.map(e=>{
     const mood = moods.find(m=>m.key===e.mood) || moods[4];
     const who = e.user_id===currentUser.id ? (currentProfile?.nickname||'คุณ') : (partnerProfile?.nickname||'คู่ของคุณ');
     return `<div class="mood-log"><div class="mf" style="background:${mood.color}99;">${mood.ic}</div>
       <div class="mt"><div><strong>${who}</strong> feeling ${mood.label.toLowerCase()}</div><div>${e.log_date}</div></div></div>`;
-  }).join('') || `<div class="empty-note">วันนี้ยังไม่มีใครบันทึกอารมณ์</div>`;
+  }).join('') || `<div class="empty-note">${today===todayStr() ? 'วันนี้' : 'วันที่เลือก'}ยังไม่มีใครบันทึกอารมณ์</div>`;
 }
 function viewedDate(){
   const now = new Date();
@@ -1274,7 +1294,10 @@ function renderMoodGrid(){
     if(entries && entries.length){
       lab = '<div class="mlab">' + entries.map(e=>`<span>${moodShortName(e.uid)}</span>`).join('') + '</div>';
     }
-    out += `<div class="day ${isCurMonth && d===now.getDate()?'today':''} ${lab?'has-mood':''}" style="${bg}">${d}${lab}</div>`;
+    const dateStr = `${y}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isFuture = dateStr > todayStr();
+    const isSel = dateStr === moodDate();
+    out += `<div class="day ${isCurMonth && d===now.getDate()?'today':''} ${lab?'has-mood':''} ${isSel?'mood-sel':''} ${isFuture?'future':''}" style="${bg}" ${isFuture?'':`onclick="selectMoodDate('${dateStr}')"`}>${d}${lab}</div>`;
   }
   document.getElementById('calMoodGrid').innerHTML = out;
 }
