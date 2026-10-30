@@ -14,6 +14,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
     --maroon:#7A1B2B;
@@ -316,6 +318,73 @@
   .config-warning{position:fixed; inset:0; background:rgba(58,35,35,.75); display:flex; align-items:center; justify-content:center; z-index:50; padding:20px;}
   .config-warning .box{background:#fff; border-radius:20px; padding:22px; max-width:360px; font-size:13.5px; line-height:1.7;}
   .config-warning code{background:var(--pink-soft); padding:2px 6px; border-radius:6px; font-size:12px;}
+
+  /* ===== Debt ===== */
+  .debt-hero{border-radius:22px; padding:18px; background:linear-gradient(135deg,var(--maroon),var(--maroon-dark)); color:#fff; margin-bottom:12px; display:flex; align-items:center; gap:16px;}
+  .debt-ring{width:92px; height:92px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; position:relative;}
+  .debt-ring::after{content:''; position:absolute; inset:11px; background:var(--maroon-dark); border-radius:50%;}
+  .debt-ring span{position:relative; z-index:1; font-family:'Baloo 2'; font-weight:800; font-size:18px;}
+  .debt-hero .lbl{font-size:12px; opacity:.85; font-weight:700;}
+  .debt-hero .amt{font-family:'Baloo 2'; font-size:26px; font-weight:800; line-height:1.15;}
+  .debt-hero .sub{font-size:11.5px; opacity:.8; margin-top:2px;}
+  .debt-two{display:flex; gap:10px; margin-bottom:6px;}
+  .debt-mini{flex:1; border:1.5px solid var(--line); border-radius:16px; padding:12px 14px; background:#fff;}
+  .debt-mini .l{font-size:11px; color:var(--muted); font-weight:700;}
+  .debt-mini .v{font-family:'Baloo 2'; font-size:18px; font-weight:800; margin-top:2px;}
+  .debt-mini.paid .v{color:#3F9C8C;}
+  .debt-mini.left .v{color:var(--maroon);}
+  .debt-seg{display:flex; background:var(--pink-soft); border-radius:999px; padding:3px;}
+  .debt-seg button{border:none; background:transparent; padding:6px 14px; font-size:12px; font-weight:800; color:var(--muted); border-radius:999px; cursor:pointer;}
+  .debt-seg button.active{background:#fff; color:var(--maroon); box-shadow:0 4px 10px -4px rgba(122,27,43,.3);}
+  .debt-chart-box{border:1.5px solid var(--line); border-radius:18px; padding:16px; background:#fff;}
+  .debt-donut-wrap{display:flex; align-items:center; gap:16px;}
+  .debt-donut{width:130px; height:130px; border-radius:50%; flex-shrink:0; position:relative;}
+  .debt-donut::after{content:''; position:absolute; inset:26px; background:#fff; border-radius:50%;}
+  .debt-donut-c{position:absolute; inset:0; z-index:1; display:flex; flex-direction:column; align-items:center; justify-content:center;}
+  .debt-donut-c b{font-family:'Baloo 2'; font-size:17px; color:var(--maroon); line-height:1;}
+  .debt-donut-c small{font-size:10px; color:var(--muted); font-weight:700;}
+  .debt-legend{flex:1; min-width:0; font-size:12px; font-weight:700;}
+  .debt-legend div{display:flex; align-items:center; gap:7px; margin-bottom:7px;}
+  .debt-legend i{width:10px; height:10px; border-radius:3px; flex-shrink:0;}
+  .debt-legend .nm{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .debt-legend .pc{margin-left:auto; color:var(--muted);}
+  .debt-bars{display:flex; align-items:flex-end; gap:12px; height:150px; border-bottom:1.5px solid var(--line); padding-top:6px;}
+  .debt-bcol{flex:1; min-width:0; height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center;}
+  .debt-bstack{width:62%; display:flex; flex-direction:column; justify-content:flex-end; border-radius:8px 8px 0 0; overflow:hidden; min-height:4px;}
+  .debt-bstack .p{background:#3F9C8C;}
+  .debt-bstack .r{background:var(--maroon);}
+  .debt-blab{font-size:9.5px; font-weight:700; color:var(--muted); margin-top:6px; text-align:center; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .debt-bleg{display:flex; gap:14px; justify-content:center; font-size:11px; font-weight:700; margin-top:10px; color:var(--muted);}
+  .debt-bleg i{display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:5px;}
+  .debt-card{border:1.5px solid var(--line); border-radius:18px; padding:14px 16px; margin-bottom:12px; background:#fff;}
+  .debt-top{display:flex; align-items:center; gap:11px;}
+  .debt-ic{width:40px; height:40px; border-radius:13px; background:var(--pink-soft); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;}
+  .debt-name{font-family:'Baloo 2'; font-weight:800; font-size:14.5px; line-height:1.2; word-break:break-word;}
+  .debt-meta{font-size:11px; color:var(--muted); font-weight:700; margin-top:2px;}
+  .debt-left{margin-left:auto; text-align:right; flex-shrink:0;}
+  .debt-left b{font-family:'Baloo 2'; font-size:16px; color:var(--maroon); display:block; line-height:1.1;}
+  .debt-left small{font-size:10px; color:var(--muted); font-weight:700;}
+  .debt-prog{height:8px; background:var(--pink-soft); border-radius:99px; overflow:hidden; margin:12px 0 6px;}
+  .debt-prog div{height:100%; background:linear-gradient(90deg,#6FC7B8,#3F9C8C); border-radius:99px;}
+  .debt-row{display:flex; justify-content:space-between; gap:8px; font-size:11px; font-weight:700; color:var(--muted);}
+  .debt-act{display:flex; gap:8px; margin-top:12px;}
+  .debt-btn{flex:1; border:1.5px solid var(--maroon); background:var(--maroon); color:#fff; border-radius:12px; padding:8px 0; font-family:'Baloo 2'; font-weight:700; font-size:13px; cursor:pointer;}
+  .debt-btn.ghost{background:#fff; color:var(--maroon);}
+  .debt-btn.small{flex:0 0 44px;}
+  .debt-tag{font-size:10px; font-weight:800; padding:2px 8px; border-radius:999px; background:#EAF7FC; color:#2A7A93; white-space:nowrap;}
+  .debt-tag.y{background:#FFF3DA; color:#B7791F;}
+  .debt-tag.due{background:#FBE2E2; color:#B23A3A;}
+  .debt-tag.ok{background:#E4F6EE; color:#2E8F63;}
+  .debt-hist{margin-top:10px; border-top:1px dashed var(--line); padding-top:8px;}
+  .debt-hist .hr{display:flex; justify-content:space-between; align-items:center; font-size:11.5px; font-weight:700; padding:3px 0; gap:8px;}
+  .debt-hist .hr span:first-child{color:var(--muted); font-weight:600;}
+  .debt-hist .hr .r{display:flex; align-items:center; gap:4px;}
+  .debt-exp{display:flex; gap:10px;}
+  .debt-exp button{flex:1; border:1.5px solid var(--line); background:#fff; border-radius:14px; padding:11px 0; font-family:'Baloo 2'; font-weight:700; font-size:13.5px; cursor:pointer; color:var(--text);}
+  .debt-exp button:hover{border-color:var(--maroon);}
+  .dfl{font-size:11px; font-weight:700; color:var(--muted); white-space:nowrap;}
+  .chip-wrap{display:flex; flex-wrap:wrap; gap:7px; margin-bottom:10px;}
+  .chip-wrap .chip{padding:7px 12px; font-size:12.5px;}
 </style>
 </head>
 <body>
@@ -697,6 +766,78 @@
       <p class="hint" id="notifIOSHint" style="display:none;">📱 บน iPhone: กดปุ่มแชร์ใน Safari แล้วเลือก "เพิ่มลงในหน้าจอโฮม" ก่อน แล้วเปิดแอปจากไอคอนนั้นถึงจะเปิดแจ้งเตือนได้</p>
     </section>
 
+    <!-- DEBT -->
+    <section class="screen" id="screen-debt">
+      <div class="topbar"><h1>💸 Debt</h1><button class="icon-btn" onclick="goScreen('home')">🏠</button></div>
+
+      <div class="toggle-pair">
+        <div class="pill on-shared" id="debtPillShared" onclick="setDebtMode('shared')">● Shared</div>
+        <div class="pill" id="debtPillPersonal" onclick="setDebtMode('personal')">● Personal</div>
+      </div>
+
+      <div class="debt-hero">
+        <div class="debt-ring" id="debtRing"><span id="debtRingPct">0%</span></div>
+        <div>
+          <div class="lbl">ยอดคงเหลือที่ต้องจ่าย</div>
+          <div class="amt" id="debtRemain">฿ 0</div>
+          <div class="sub" id="debtSub">-</div>
+        </div>
+      </div>
+      <div class="debt-two">
+        <div class="debt-mini paid"><div class="l">ใช้หนี้แล้ว</div><div class="v" id="debtPaidAmt">฿ 0</div></div>
+        <div class="debt-mini left"><div class="l">ต้องจ่ายงวดนี้ (คงค้าง)</div><div class="v" id="debtDueAmt">฿ 0</div></div>
+      </div>
+
+      <div class="section-title"><h2>สรุปภาพรวม</h2>
+        <div class="debt-seg"><button class="active" id="debtChartDonut" onclick="setDebtChart('donut')">โดนัท</button><button id="debtChartBar" onclick="setDebtChart('bar')">แท่ง</button></div>
+      </div>
+      <div class="debt-chart-box" id="debtChartBox"></div>
+
+      <div class="section-title"><h2>รายการหนี้</h2><span class="stat-label" id="debtCount"></span></div>
+      <div id="debtList"></div>
+      <button class="add-btn" onclick="openDebtModal(null)">+ เพิ่มหนี้</button>
+
+      <div class="section-title"><h2>Export รายงาน</h2></div>
+      <div class="debt-exp">
+        <button onclick="exportDebtPDF()">📄 PDF</button>
+        <button onclick="exportDebtExcel()">📊 Excel</button>
+      </div>
+    </section>
+
+    <!-- ADD/EDIT DEBT MODAL -->
+    <div class="modal-overlay" id="debtModal">
+      <div class="modal-box wide">
+        <h3 id="debtModalTitle">เพิ่มหนี้</h3>
+        <div class="modal-label">เลือกจาก Catalog</div>
+        <div class="chip-wrap" id="debtCatRow"></div>
+        <div class="field"><input type="text" id="debtName" maxlength="60" placeholder="ชื่อหนี้ (ตั้งชื่อเองได้)"></div>
+        <div class="field"><span class="dfl">ยอดหนี้ทั้งหมด</span><input type="number" id="debtTotal" placeholder="0"></div>
+        <div class="field"><span class="dfl">จ่ายแล้วก่อนหน้า</span><input type="number" id="debtInitPaid" placeholder="0"></div>
+        <div class="modal-label">รูปแบบการตัดจ่าย</div>
+        <div class="chip-wrap"><div class="chip active" id="debtFreqM" onclick="setDebtFreq('monthly')">📆 รายเดือน</div><div class="chip" id="debtFreqY" onclick="setDebtFreq('yearly')">🗓️ รายปี</div></div>
+        <div class="field"><span class="dfl">ยอดต่องวด</span><input type="number" id="debtInst" placeholder="0"></div>
+        <div class="field" id="debtMonthWrap" style="display:none;"><span class="dfl">เดือนที่ครบกำหนด (1-12)</span><input type="number" id="debtDueMonth" min="1" max="12" placeholder="เช่น 3"></div>
+        <div class="field"><span class="dfl">ครบกำหนดวันที่</span><input type="number" id="debtDueDay" min="1" max="31" placeholder="เช่น 25"></div>
+        <div class="field"><span class="dfl">ดอกเบี้ย % (ไม่บังคับ)</span><input type="number" id="debtInterest" step="0.01" placeholder="0"></div>
+        <button class="btn-primary" onclick="submitDebt()">บันทึก</button>
+        <div class="modal-cancel" onclick="closeDebtModal()">ยกเลิก</div>
+        <div class="modal-delete" id="debtDeleteBtn" style="display:none;" onclick="deleteDebtFromModal()">🗑️ ลบหนี้นี้ (รวมประวัติการจ่าย)</div>
+      </div>
+    </div>
+
+    <!-- DEBT PAYMENT MODAL -->
+    <div class="modal-overlay" id="debtPayModal">
+      <div class="modal-box">
+        <h3 id="debtPayTitle">ตัดจ่ายหนี้</h3>
+        <div class="debt-mini left" style="margin-bottom:12px;"><div class="l">คงเหลือ</div><div class="v" id="debtPayLeft">฿ 0</div></div>
+        <div class="field"><span class="dfl">จำนวนเงิน</span><input type="number" id="debtPayAmt" placeholder="0"></div>
+        <div class="chip-wrap"><div class="chip" onclick="debtPayQuick('inst')">ยอดงวด</div><div class="chip" onclick="debtPayQuick('all')">จ่ายหมด</div></div>
+        <div class="field"><span class="dfl">วันที่</span><input type="date" id="debtPayDate"></div>
+        <button class="btn-primary" onclick="submitDebtPayment()">บันทึกการตัดจ่าย</button>
+        <div class="modal-cancel" onclick="closeDebtPayModal()">ยกเลิก</div>
+      </div>
+    </div>
+
     <!-- BOTTOM NAV -->
     <div class="bottom-nav" id="bottomNav"></div>
   </div>
@@ -879,6 +1020,7 @@ const navItems = [
   {id:'finance', ic:'💳', label:'Finance'},
   {id:'travel', ic:'✈️', label:'Travel'},
   {id:'child', ic:'👶', label:'Child'},
+  {id:'debt', ic:'💸', label:'Debt'},
   {id:'profile', ic:'👤', label:'Profile'},
 ];
 const todayStr = () => new Date().toISOString().slice(0,10);
@@ -1003,6 +1145,7 @@ function goScreen(id){
   document.getElementById('screen-'+id).classList.add('active');
   renderNav(id);
   if(id==='profile') renderProfileScreen();
+  if(id==='debt') renderDebt();
 }
 function renderNav(activeId){
   document.getElementById('bottomNav').innerHTML = navItems.map(n=>`
@@ -1013,7 +1156,7 @@ function renderNav(activeId){
 
 /* ---------- load everything ---------- */
 async function loadAll(){
-  await Promise.all([loadShopping(), loadCalendar(), loadFinance(), loadTrips(), loadChildren()]);
+  await Promise.all([loadShopping(), loadCalendar(), loadFinance(), loadTrips(), loadChildren(), loadDebts()]);
   renderHomeStats();
 }
 function subscribeRealtime(){
@@ -1024,6 +1167,8 @@ function subscribeRealtime(){
     .on('postgres_changes', {event:'*', schema:'public', table:'finance_items', filter:`household_id=eq.${currentHouseholdId}`}, loadFinance)
     .on('postgres_changes', {event:'*', schema:'public', table:'trips', filter:`household_id=eq.${currentHouseholdId}`}, loadTrips)
     .on('postgres_changes', {event:'*', schema:'public', table:'children', filter:`household_id=eq.${currentHouseholdId}`}, loadChildren)
+    .on('postgres_changes', {event:'*', schema:'public', table:'debts', filter:`household_id=eq.${currentHouseholdId}`}, loadDebts)
+    .on('postgres_changes', {event:'*', schema:'public', table:'debt_payments', filter:`household_id=eq.${currentHouseholdId}`}, loadDebts)
     .subscribe();
 }
 
@@ -1041,7 +1186,8 @@ function renderHomeStats(){
     <div class="stat-card" onclick="goScreen('calendar')" style="cursor:pointer;"><div class="em">📅</div><div class="stat-num">${monthEventCount}</div><div class="stat-label">Events</div></div>
     <div class="stat-card" onclick="goScreen('travel')" style="cursor:pointer;"><div class="em">✈️</div><div class="stat-num">${monthTripCount}</div><div class="stat-label">Travel Trip</div></div>
     <div class="stat-card" onclick="goScreen('child')" style="cursor:pointer;"><div class="em">👶</div><div class="stat-num">${children.length}</div><div class="stat-label">Child</div></div>
-    <div class="stat-card" onclick="goScreen('finance')" style="cursor:pointer;"><div class="em">🐷</div><div class="stat-num" style="color:${budgetColor};">${pct>=0?'+':''}${pct}%</div><div class="stat-label">${formatCompactTHB(remaining)}</div></div>`;
+    <div class="stat-card" onclick="goScreen('finance')" style="cursor:pointer;"><div class="em">🐷</div><div class="stat-num" style="color:${budgetColor};">${pct>=0?'+':''}${pct}%</div><div class="stat-label">${formatCompactTHB(remaining)}</div></div>
+    <div class="stat-card" onclick="goScreen('debt')" style="cursor:pointer;"><div class="em">💸</div><div class="stat-num">${formatCompactTHB(debtsForMode('shared').reduce((a,d)=>a+debtLeft(d),0))}</div><div class="stat-label">Debt</div></div>`;
   const todayBox = document.getElementById('homeToday');
   const todaysEvents = homeVisibleEvents.filter(e=>e.event_date === todayStr());
   todayBox.innerHTML = todaysEvents.length ? todaysEvents.map(e=>`
@@ -2063,6 +2209,355 @@ async function deleteChildEvent(id){
   if(error){ alert('ลบไม่สำเร็จ: ' + error.message); console.error(error); return; }
   await loadCalendar();
   renderChildCalGrid(); renderChildCalList(); renderChildCalDayDetail();
+}
+
+/* ---------- DEBT ---------- */
+let debts = [], debtPayments = [], debtMode = 'shared', debtChartType = 'donut';
+let debtEditId = null, debtPayId = null, debtFormFreq = 'monthly', debtFormIcon = '✍️', debtFormCat = null;
+const debtOpen = new Set();
+const debtCatalog = [['🏠','สินเชื่อบ้าน'],['🚗','สินเชื่อรถ'],['💳','บัตรเครดิต'],['🎓','กยศ./กรอ.'],['📱','ผ่อนมือถือ/สินค้า'],['🛵','มอเตอร์ไซค์'],['🤝','ยืมเงิน'],['🏦','สินเชื่อส่วนบุคคล'],['✍️','ตั้งชื่อเอง']];
+const debtColors = ['#7A1B2B','#F4A25E','#B79CE0','#5FA8D3','#6FC7B8','#F5A6B6','#E0A96D','#9B9B9B'];
+const thMonthsShort = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const escH = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtB = n => '฿ ' + Math.round(Number(n)||0).toLocaleString();
+
+async function loadDebts(){
+  if(!sb || !currentHouseholdId) return;
+  const { data: d, error: e1 } = await sb.from('debts').select('*').eq('household_id', currentHouseholdId).order('created_at', {ascending:true});
+  if(e1) console.error('loadDebts error:', e1);
+  debts = d || [];
+  const { data: p, error: e2 } = await sb.from('debt_payments').select('*').eq('household_id', currentHouseholdId).order('pay_date', {ascending:false});
+  if(e2) console.error('loadDebtPayments error:', e2);
+  debtPayments = p || [];
+  renderDebt();
+  renderHomeStats();
+}
+function debtsForMode(mode = debtMode){
+  if(mode==='shared') return debts.filter(d => (d.visibility||'shared')==='shared');
+  return debts.filter(d => d.visibility==='personal' && d.created_by===currentUser.id);
+}
+function debtPaymentsOf(id){ return debtPayments.filter(p => String(p.debt_id)===String(id)); }
+function debtPaid(d){ return Number(d.initial_paid||0) + debtPaymentsOf(d.id).reduce((a,p)=>a+Number(p.amount),0); }
+function debtLeft(d){ return Math.max(0, Number(d.total_amount||0) - debtPaid(d)); }
+function debtDueNow(d){
+  const left = debtLeft(d);
+  const inst = Number(d.installment||0);
+  if(left<=0 || !inst) return 0;
+  const now = todayStr();
+  if(d.frequency==='yearly' && d.due_month && Number(now.slice(5,7)) < Number(d.due_month)) return 0;
+  const key = d.frequency==='yearly' ? now.slice(0,4) : now.slice(0,7);
+  const paidPeriod = debtPaymentsOf(d.id).filter(p => (p.pay_date||'').startsWith(key)).reduce((a,p)=>a+Number(p.amount),0);
+  return Math.min(left, Math.max(0, inst - paidPeriod));
+}
+function debtWhen(d){
+  if(d.frequency==='yearly'){
+    const parts = [];
+    if(d.due_day) parts.push('วันที่ '+d.due_day);
+    if(d.due_month) parts.push(thMonthsShort[d.due_month-1]);
+    return 'ทุกปี' + (parts.length ? ' ' + parts.join(' ') : '');
+  }
+  return d.due_day ? 'ทุกวันที่ '+d.due_day : 'รายเดือน';
+}
+function debtTotals(list){
+  const T = list.reduce((a,d)=>a+Number(d.total_amount||0),0);
+  const P = list.reduce((a,d)=>a+Math.min(Number(d.total_amount||0), debtPaid(d)),0);
+  const R = T - P;
+  const due = list.reduce((a,d)=>a+debtDueNow(d),0);
+  const pct = T ? Math.round(P/T*100) : 0;
+  return { T, P, R, due, pct };
+}
+function setDebtMode(mode){
+  debtMode = mode;
+  document.getElementById('debtPillShared').className = 'pill' + (mode==='shared' ? ' on-shared' : '');
+  document.getElementById('debtPillPersonal').className = 'pill' + (mode==='personal' ? ' on-personal' : '');
+  renderDebt();
+}
+function setDebtChart(t){
+  debtChartType = t;
+  document.getElementById('debtChartDonut').className = t==='donut' ? 'active' : '';
+  document.getElementById('debtChartBar').className = t==='bar' ? 'active' : '';
+  renderDebt();
+}
+function renderDebt(){
+  if(!document.getElementById('debtList') || !currentUser) return;
+  const L = debtsForMode();
+  const { T, P, R, due, pct } = debtTotals(L);
+  document.getElementById('debtRemain').textContent = fmtB(R);
+  document.getElementById('debtSub').textContent = 'จากยอดหนี้รวม ' + fmtB(T);
+  document.getElementById('debtPaidAmt').textContent = fmtB(P);
+  document.getElementById('debtDueAmt').textContent = fmtB(due);
+  document.getElementById('debtRing').style.background = `conic-gradient(#6FC7B8 ${pct*3.6}deg, rgba(255,255,255,.22) 0)`;
+  document.getElementById('debtRingPct').textContent = pct + '%';
+  document.getElementById('debtCount').textContent = L.length + ' รายการ';
+
+  // ----- chart -----
+  const box = document.getElementById('debtChartBox');
+  const active = L.filter(d => Number(d.total_amount) > 0);
+  if(!active.length){
+    box.innerHTML = '<div class="empty-note">ยังไม่มีข้อมูลหนี้</div>';
+  } else if(debtChartType==='donut'){
+    let acc = 0;
+    const stops = R > 0
+      ? active.map((d,i)=>{ const v = debtLeft(d)/R*100; const s = `${debtColors[i%debtColors.length]} ${acc}% ${acc+v}%`; acc += v; return s; }).join(',')
+      : '#3F9C8C 0% 100%';
+    box.innerHTML = `<div class="debt-donut-wrap">
+      <div class="debt-donut" style="background:conic-gradient(${stops})"><div class="debt-donut-c"><b>${formatCompactTHB(R)}</b><small>คงเหลือรวม</small></div></div>
+      <div class="debt-legend">${active.map((d,i)=>`<div><i style="background:${debtColors[i%debtColors.length]}"></i><span class="nm">${escH(d.name)}</span><span class="pc">${R?Math.round(debtLeft(d)/R*100):0}%</span></div>`).join('')}</div>
+    </div>
+    <div class="debt-bleg"><span>สัดส่วนยอดคงเหลือของแต่ละหนี้${R<=0?' (ปิดหนี้ครบแล้ว 🎉)':''}</span></div>`;
+  } else {
+    const mx = Math.max(...active.map(d=>Number(d.total_amount)));
+    box.innerHTML = `<div class="debt-bars">${active.map(d=>{
+      const h = Math.max(8, Number(d.total_amount)/mx*120);
+      const paid = Math.min(Number(d.total_amount), debtPaid(d)), left = debtLeft(d);
+      return `<div class="debt-bcol"><div class="debt-bstack" style="height:${h}px"><div class="r" style="flex:${left}"></div><div class="p" style="flex:${paid}"></div></div><div class="debt-blab">${escH(d.name)}</div></div>`;
+    }).join('')}</div>
+    <div class="debt-bleg"><span><i style="background:#3F9C8C"></i>จ่ายแล้ว</span><span><i style="background:#7A1B2B"></i>คงเหลือ</span></div>`;
+  }
+
+  // ----- list -----
+  document.getElementById('debtList').innerHTML = L.map(d=>{
+    const left = debtLeft(d), paid = debtPaid(d), total = Number(d.total_amount||0);
+    const p = total ? Math.min(100, Math.round(paid/total*100)) : 0;
+    const done = left <= 0, dueNow = debtDueNow(d);
+    const hist = debtPaymentsOf(d.id);
+    const open = debtOpen.has(d.id);
+    let status = '';
+    if(done) status = '<span class="debt-tag ok">ปิดหนี้แล้ว</span>';
+    else if(dueNow > 0) status = `<span class="debt-tag due">ต้องจ่าย ${fmtB(dueNow)}</span>`;
+    else if(Number(d.installment) > 0) status = '<span class="debt-tag ok">ชำระงวดนี้แล้ว</span>';
+    return `<div class="debt-card">
+      <div class="debt-top">
+        <div class="debt-ic">${escH(d.icon||'💸')}</div>
+        <div style="min-width:0;">
+          <div class="debt-name">${escH(d.name)}</div>
+          <div class="debt-meta"><span class="debt-tag ${d.frequency==='yearly'?'y':''}">${d.frequency==='yearly'?'รายปี':'รายเดือน'}</span> งวดละ ${fmtB(d.installment)}${Number(d.interest_rate)>0?' · ดอก '+Number(d.interest_rate)+'%':''}</div>
+        </div>
+        <div class="debt-left"><b>${done?'✓':fmtB(left)}</b><small>${done?'ครบแล้ว':'คงเหลือ'}</small></div>
+      </div>
+      <div class="debt-prog"><div style="width:${p}%"></div></div>
+      <div class="debt-row"><span>จ่ายแล้ว ${fmtB(paid)} (${p}%) จาก ${fmtB(total)}</span></div>
+      <div class="debt-row" style="margin-top:6px; align-items:center;"><span>${escH(debtWhen(d))}</span>${status}</div>
+      <div class="debt-act">
+        ${done ? '' : `<button class="debt-btn" onclick="openDebtPayModal('${d.id}')">💰 ตัดจ่าย</button>`}
+        <button class="debt-btn ghost" onclick="toggleDebtHist('${d.id}')">📜 ประวัติ (${hist.length})</button>
+        <button class="debt-btn ghost small" onclick="openDebtModal('${d.id}')">✏️</button>
+      </div>
+      ${open ? `<div class="debt-hist">${hist.length ? hist.map(h=>`<div class="hr"><span>📅 ${formatDateTH(h.pay_date)}</span><span class="r">${fmtB(h.amount)}<button class="fin-icon-btn" onclick="deleteDebtPayment('${h.id}')">🗑️</button></span></div>`).join('') : '<div class="empty-note" style="padding:6px 0;">ยังไม่มีประวัติการจ่าย</div>'}${Number(d.initial_paid)>0?`<div class="hr"><span>ยอดที่จ่ายไว้ก่อนเริ่มบันทึก</span><span>${fmtB(d.initial_paid)}</span></div>`:''}</div>` : ''}
+    </div>`;
+  }).join('') || '<div class="empty-note">ยังไม่มีรายการหนี้</div>';
+}
+function toggleDebtHist(id){
+  if(debtOpen.has(id)) debtOpen.delete(id); else debtOpen.add(id);
+  renderDebt();
+}
+
+/* --- add / edit debt --- */
+function drawDebtCats(){
+  document.getElementById('debtCatRow').innerHTML = debtCatalog.map((c,i)=>
+    `<div class="chip ${debtFormCat===i?'active':''}" onclick="pickDebtCat(${i})">${c[0]} ${c[1]}</div>`).join('');
+}
+function pickDebtCat(i){
+  debtFormCat = i;
+  debtFormIcon = debtCatalog[i][0];
+  const nameEl = document.getElementById('debtName');
+  nameEl.value = (i === debtCatalog.length-1) ? '' : debtCatalog[i][1];
+  drawDebtCats();
+  nameEl.focus();
+}
+function setDebtFreq(f){
+  debtFormFreq = f;
+  document.getElementById('debtFreqM').className = 'chip' + (f==='monthly' ? ' active' : '');
+  document.getElementById('debtFreqY').className = 'chip' + (f==='yearly' ? ' active' : '');
+  document.getElementById('debtMonthWrap').style.display = f==='yearly' ? '' : 'none';
+}
+function openDebtModal(id){
+  debtEditId = id;
+  const d = id ? debts.find(x=>String(x.id)===String(id)) : null;
+  document.getElementById('debtModalTitle').textContent = d ? 'แก้ไขหนี้' : 'เพิ่มหนี้';
+  debtFormCat = null;
+  debtFormIcon = d?.icon || '✍️';
+  document.getElementById('debtName').value = d?.name || '';
+  document.getElementById('debtTotal').value = d?.total_amount ?? '';
+  document.getElementById('debtInitPaid').value = d?.initial_paid || '';
+  document.getElementById('debtInst').value = d?.installment || '';
+  document.getElementById('debtDueDay').value = d?.due_day || '';
+  document.getElementById('debtDueMonth').value = d?.due_month || '';
+  document.getElementById('debtInterest').value = d?.interest_rate || '';
+  setDebtFreq(d?.frequency || 'monthly');
+  drawDebtCats();
+  document.getElementById('debtDeleteBtn').style.display = d ? 'block' : 'none';
+  document.getElementById('debtModal').classList.add('show');
+}
+function closeDebtModal(){ debtEditId = null; document.getElementById('debtModal').classList.remove('show'); }
+async function submitDebt(){
+  const name = document.getElementById('debtName').value.trim();
+  const total = Number(document.getElementById('debtTotal').value) || 0;
+  if(!name){ alert('กรุณาระบุชื่อหนี้'); return; }
+  if(total <= 0){ alert('กรุณาระบุยอดหนี้ทั้งหมด'); return; }
+  const initPaid = Math.min(total, Number(document.getElementById('debtInitPaid').value) || 0);
+  const dueDay = Number(document.getElementById('debtDueDay').value) || null;
+  const dueMonth = debtFormFreq==='yearly' ? (Number(document.getElementById('debtDueMonth').value) || null) : null;
+  if((dueDay && (dueDay<1 || dueDay>31)) || (dueMonth && (dueMonth<1 || dueMonth>12))){ alert('วันที่/เดือนที่ครบกำหนดไม่ถูกต้อง'); return; }
+  const payload = {
+    name, icon: debtFormIcon, total_amount: total, initial_paid: initPaid,
+    installment: Number(document.getElementById('debtInst').value) || 0,
+    frequency: debtFormFreq, due_day: dueDay, due_month: dueMonth,
+    interest_rate: Number(document.getElementById('debtInterest').value) || 0
+  };
+  let error;
+  if(debtEditId){
+    ({ error } = await sb.from('debts').update(payload).eq('id', debtEditId));
+  } else {
+    ({ error } = await sb.from('debts').insert({ household_id: currentHouseholdId, created_by: currentUser.id, visibility: debtMode, ...payload }));
+  }
+  if(error){ alert('บันทึกไม่สำเร็จ: ' + error.message); console.error(error); return; }
+  closeDebtModal();
+  await loadDebts();
+}
+async function deleteDebtFromModal(){
+  if(!debtEditId) return;
+  if(!confirm('ลบหนี้นี้ พร้อมประวัติการจ่ายทั้งหมด?')) return;
+  const { error } = await sb.from('debts').delete().eq('id', debtEditId);
+  if(error){ alert('ลบไม่สำเร็จ: ' + error.message); console.error(error); return; }
+  closeDebtModal();
+  await loadDebts();
+}
+
+/* --- payments --- */
+function openDebtPayModal(id){
+  const d = debts.find(x=>String(x.id)===String(id));
+  if(!d) return;
+  debtPayId = id;
+  document.getElementById('debtPayTitle').textContent = 'ตัดจ่าย: ' + d.name;
+  document.getElementById('debtPayLeft').textContent = fmtB(debtLeft(d));
+  const suggest = Math.min(debtLeft(d), Number(d.installment)||debtLeft(d));
+  document.getElementById('debtPayAmt').value = suggest || '';
+  document.getElementById('debtPayDate').value = todayStr();
+  document.getElementById('debtPayModal').classList.add('show');
+}
+function closeDebtPayModal(){ debtPayId = null; document.getElementById('debtPayModal').classList.remove('show'); }
+function debtPayQuick(kind){
+  const d = debts.find(x=>String(x.id)===String(debtPayId));
+  if(!d) return;
+  document.getElementById('debtPayAmt').value = kind==='all' ? debtLeft(d) : Math.min(debtLeft(d), Number(d.installment)||debtLeft(d));
+}
+async function submitDebtPayment(){
+  const d = debts.find(x=>String(x.id)===String(debtPayId));
+  if(!d) return;
+  const amount = Math.min(Number(document.getElementById('debtPayAmt').value) || 0, debtLeft(d));
+  const pay_date = document.getElementById('debtPayDate').value || todayStr();
+  if(amount <= 0){ alert('กรุณาระบุจำนวนเงิน'); return; }
+  const { error } = await sb.from('debt_payments').insert({ household_id: currentHouseholdId, debt_id: d.id, amount, pay_date, created_by: currentUser.id });
+  if(error){ alert('บันทึกไม่สำเร็จ: ' + error.message); console.error(error); return; }
+  debtOpen.add(d.id);
+  closeDebtPayModal();
+  await loadDebts();
+}
+async function deleteDebtPayment(id){
+  if(!confirm('ลบรายการจ่ายนี้?')) return;
+  const { error } = await sb.from('debt_payments').delete().eq('id', id);
+  if(error){ alert('ลบไม่สำเร็จ: ' + error.message); console.error(error); return; }
+  await loadDebts();
+}
+
+/* --- export --- */
+function debtReportData(){
+  const L = debtsForMode();
+  const t = debtTotals(L);
+  const owner = debtMode==='shared' ? 'Shared (ของบ้าน)' : 'Personal (' + (currentProfile?.nickname || currentProfile?.name || 'ส่วนตัว') + ')';
+  const rows = L.map(d=>{
+    const total = Number(d.total_amount||0), paid = Math.min(total, debtPaid(d));
+    return { name:d.name, freq:d.frequency==='yearly'?'รายปี':'รายเดือน', inst:Number(d.installment||0), interest:Number(d.interest_rate||0),
+             total, paid, left:debtLeft(d), pct: total ? Math.round(paid/total*100) : 0, due:debtDueNow(d), when:debtWhen(d) };
+  });
+  const pays = [];
+  L.forEach(d=>debtPaymentsOf(d.id).forEach(p=>pays.push({ date:p.pay_date, name:d.name, amount:Number(p.amount) })));
+  pays.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  return { owner, rows, pays, ...t };
+}
+function exportDebtExcel(){
+  if(!window.XLSX){ alert('โหลดตัวสร้างไฟล์ Excel ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่'); return; }
+  const r = debtReportData();
+  if(!r.rows.length){ alert('ยังไม่มีรายการหนี้ให้ export'); return; }
+  const wb = XLSX.utils.book_new();
+  const sum = [
+    ['รายงานหนี้สิน - Our Homie'], ['ประเภท', r.owner], ['วันที่ออกรายงาน', formatDateTH(todayStr())], [],
+    ['ยอดหนี้รวม (บาท)', r.T], ['ใช้หนี้แล้ว (บาท)', r.P], ['ยอดคงเหลือ (บาท)', r.R],
+    ['ต้องจ่ายงวดนี้ (บาท)', r.due], ['ชำระแล้ว (%)', r.pct]
+  ];
+  const ws1 = XLSX.utils.aoa_to_sheet(sum); ws1['!cols'] = [{wch:26},{wch:28}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'สรุป');
+  const head = ['ชื่อหนี้','รูปแบบ','ยอดต่องวด','ดอกเบี้ย %','ยอดหนี้ทั้งหมด','จ่ายแล้ว','คงเหลือ','ชำระแล้ว %','ต้องจ่ายงวดนี้','กำหนดชำระ'];
+  const body = r.rows.map(x=>[x.name,x.freq,x.inst,x.interest,x.total,x.paid,x.left,x.pct,x.due,x.when]);
+  body.push(['รวม','','','',r.T,r.P,r.R,r.pct,r.due,'']);
+  const ws2 = XLSX.utils.aoa_to_sheet([head, ...body]);
+  ws2['!cols'] = [{wch:26},{wch:10},{wch:12},{wch:11},{wch:15},{wch:13},{wch:13},{wch:12},{wch:14},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'รายการหนี้');
+  const ws3 = XLSX.utils.aoa_to_sheet([['วันที่','ชื่อหนี้','จำนวนเงิน (บาท)'], ...r.pays.map(p=>[p.date, p.name, p.amount])]);
+  ws3['!cols'] = [{wch:14},{wch:26},{wch:16}];
+  XLSX.utils.book_append_sheet(wb, ws3, 'ประวัติการชำระ');
+  XLSX.writeFile(wb, `debt-${debtMode}-${todayStr()}.xlsx`);
+}
+async function exportDebtPDF(){
+  if(!window.html2canvas || !window.jspdf){ alert('โหลดตัวสร้างไฟล์ PDF ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่'); return; }
+  const r = debtReportData();
+  if(!r.rows.length){ alert('ยังไม่มีรายการหนี้ให้ export'); return; }
+  const th = 'text-align:left; padding:7px 6px; background:#FDEAEA; color:#7A1B2B; font-size:12px; border-bottom:2px solid #F0DCDD;';
+  const td = 'padding:7px 6px; font-size:12px; border-bottom:1px solid #F0DCDD; vertical-align:top;';
+  const num = v => Math.round(v).toLocaleString();
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed; left:-10000px; top:0; width:794px; padding:40px; background:#fff; color:#3A2323; font-family:Nunito,sans-serif;';
+  wrap.innerHTML = `
+    <div style="font-family:'Baloo 2',sans-serif; font-size:26px; font-weight:800; color:#7A1B2B;">รายงานหนี้สิน</div>
+    <div style="font-size:12.5px; color:#93777A; margin:4px 0 18px;">Our Homie · ${escH(r.owner)} · ออกรายงานวันที่ ${formatDateTH(todayStr())}</div>
+    <div style="display:flex; gap:12px; margin-bottom:20px;">
+      ${[['ยอดหนี้รวม',r.T,'#3A2323'],['ใช้หนี้แล้ว',r.P,'#3F9C8C'],['คงเหลือ',r.R,'#7A1B2B'],['ต้องจ่ายงวดนี้',r.due,'#B23A3A']].map(c=>`
+        <div style="flex:1; border:1.5px solid #F0DCDD; border-radius:14px; padding:12px 14px;">
+          <div style="font-size:11px; color:#93777A; font-weight:700;">${c[0]}</div>
+          <div style="font-size:20px; font-weight:800; color:${c[2]};">฿ ${num(c[1])}</div></div>`).join('')}
+    </div>
+    <div style="font-size:12px; font-weight:700; margin-bottom:6px;">ความคืบหน้ารวม ${r.pct}%</div>
+    <div style="height:12px; background:#FDEAEA; border-radius:99px; overflow:hidden; margin-bottom:22px;"><div style="height:12px; width:${r.pct}%; background:#3F9C8C;"></div></div>
+    <div style="font-size:15px; font-weight:800; color:#7A1B2B; margin-bottom:8px;">รายการหนี้</div>
+    <table style="width:100%; border-collapse:collapse; margin-bottom:24px;">
+      <tr><th style="${th}">ชื่อหนี้</th><th style="${th}">รูปแบบ</th><th style="${th} text-align:right;">ยอดทั้งหมด</th><th style="${th} text-align:right;">จ่ายแล้ว</th><th style="${th} text-align:right;">คงเหลือ</th><th style="${th} text-align:right;">%</th></tr>
+      ${r.rows.map(x=>`<tr><td style="${td}">${escH(x.name)}<div style="font-size:10px; color:#93777A;">งวดละ ${num(x.inst)} · ${escH(x.when)}${x.interest>0?' · ดอก '+x.interest+'%':''}</div></td>
+        <td style="${td}">${x.freq}</td><td style="${td} text-align:right;">${num(x.total)}</td><td style="${td} text-align:right; color:#3F9C8C;">${num(x.paid)}</td>
+        <td style="${td} text-align:right; color:#7A1B2B; font-weight:700;">${num(x.left)}</td>
+        <td style="${td} text-align:right; width:90px;">${x.pct}%<div style="height:5px; background:#FDEAEA; border-radius:99px; margin-top:3px;"><div style="height:5px; width:${x.pct}%; background:#3F9C8C; border-radius:99px;"></div></div></td></tr>`).join('')}
+      <tr><td style="${td} font-weight:800;" colspan="2">รวม</td><td style="${td} text-align:right; font-weight:800;">${num(r.T)}</td><td style="${td} text-align:right; font-weight:800;">${num(r.P)}</td><td style="${td} text-align:right; font-weight:800;">${num(r.R)}</td><td style="${td} text-align:right; font-weight:800;">${r.pct}%</td></tr>
+    </table>
+    <div style="font-size:15px; font-weight:800; color:#7A1B2B; margin-bottom:8px;">ประวัติการชำระ</div>
+    <table style="width:100%; border-collapse:collapse;">
+      <tr><th style="${th}">วันที่</th><th style="${th}">ชื่อหนี้</th><th style="${th} text-align:right;">จำนวนเงิน (บาท)</th></tr>
+      ${r.pays.length ? r.pays.map(p=>`<tr><td style="${td}">${formatDateTH(p.date)}</td><td style="${td}">${escH(p.name)}</td><td style="${td} text-align:right;">${num(p.amount)}</td></tr>`).join('') : `<tr><td style="${td}" colspan="3">ยังไม่มีประวัติการชำระ</td></tr>`}
+    </table>`;
+  document.body.appendChild(wrap);
+  try{
+    if(document.fonts && document.fonts.ready) await document.fonts.ready;
+    const canvas = await html2canvas(wrap, { scale:2, backgroundColor:'#ffffff' });
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pw = 210, ph = 297;
+    const pageH = Math.floor(canvas.width * ph / pw);
+    let y = 0, first = true;
+    while(y < canvas.height){
+      const h = Math.min(pageH, canvas.height - y);
+      const pc = document.createElement('canvas');
+      pc.width = canvas.width; pc.height = h;
+      pc.getContext('2d').drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
+      if(!first) pdf.addPage();
+      pdf.addImage(pc.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pw, h * pw / canvas.width);
+      y += h; first = false;
+    }
+    pdf.save(`debt-${debtMode}-${todayStr()}.pdf`);
+  }catch(e){
+    console.error(e);
+    alert('สร้าง PDF ไม่สำเร็จ: ' + (e.message || e));
+  }finally{
+    wrap.remove();
+  }
 }
 
 /* ---------- PROFILE ---------- */
